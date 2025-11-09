@@ -14,15 +14,15 @@ namespace IyagiAI.SetupWizard
     public class StandingSpriteGenerator : MonoBehaviour
     {
         // Pose 설명 매핑
-        private Dictionary<Pose, string> poseDescriptions = new Dictionary<Pose, string>
+        private Dictionary<Runtime.Pose, string> poseDescriptions = new Dictionary<Runtime.Pose, string>
         {
-            { Pose.Normal, "front-facing, full body centered, hands visible, neutral stance" },
-            { Pose.HandsOnHips, "standing confidently with hands on hips" },
-            { Pose.ArmsCrossed, "arms crossed over chest, confident/defensive stance" },
-            { Pose.Pointing, "one arm extended, pointing finger forward" },
-            { Pose.Waving, "one hand raised in friendly wave" },
-            { Pose.Thinking, "hand on chin, contemplative pose" },
-            { Pose.Surprised, "hands raised slightly, body leaning back" }
+            { Runtime.Pose.Normal, "front-facing, full body centered, hands visible, neutral stance" },
+            { Runtime.Pose.HandsOnHips, "standing confidently with hands on hips" },
+            { Runtime.Pose.ArmsCrossed, "arms crossed over chest, confident/defensive stance" },
+            { Runtime.Pose.Pointing, "one arm extended, pointing finger forward" },
+            { Runtime.Pose.Waving, "one hand raised in friendly wave" },
+            { Runtime.Pose.Thinking, "hand on chin, contemplative pose" },
+            { Runtime.Pose.Surprised, "hands raised slightly, body leaning back" }
         };
 
         // 첫 번째 캐릭터용 프롬프트 (스타일 기준 설정)
@@ -84,7 +84,7 @@ Resolution: 2048×4096.";
                 string poseText = "normal";
                 string key = $"{exprText}_{poseText}";
 
-                string poseDesc = poseDescriptions[Pose.Normal];
+                string poseDesc = poseDescriptions[Runtime.Pose.Normal];
                 string fullPrompt = isFirst
                     ? BuildFirstCharacterPrompt(character, exprText, poseDesc)
                     : BuildAdditionalCharacterPrompt(character, exprText, poseDesc);
@@ -134,7 +134,7 @@ Resolution: 2048×4096.";
         public IEnumerator GenerateSingleSprite(
             CharacterData character,
             Expression expression,
-            Pose pose,
+            Runtime.Pose pose,
             NanoBananaClient client,
             bool isFirst,
             System.Action<Sprite> onComplete)

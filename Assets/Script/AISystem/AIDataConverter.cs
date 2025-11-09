@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using IyagiAI.Runtime;
 
 namespace IyagiAI.AISystem
 {
@@ -16,7 +17,7 @@ namespace IyagiAI.AISystem
         /// <param name="jsonResponse">Gemini API의 JSON 응답</param>
         /// <param name="chapterId">챕터 ID (1, 2, 3...)</param>
         /// <returns>DialogueRecord 리스트</returns>
-        public static List<DialogueRecord> FromAIJson(string jsonResponse, int chapterId)
+        public static List<Runtime.DialogueRecord> FromAIJson(string jsonResponse, int chapterId)
         {
             // JSON 배열 추출 (Gemini 응답에서 [...] 부분만 추출)
             int startIndex = jsonResponse.IndexOf('[');
@@ -25,7 +26,7 @@ namespace IyagiAI.AISystem
             if (startIndex == -1 || endIndex == -1 || endIndex <= startIndex)
             {
                 Debug.LogError("Invalid JSON format: No array found");
-                return new List<DialogueRecord>();
+                return new List<Runtime.DialogueRecord>();
             }
 
             string jsonArray = jsonResponse.Substring(startIndex, endIndex - startIndex + 1);
@@ -36,16 +37,16 @@ namespace IyagiAI.AISystem
             if (wrapper == null || wrapper.lines == null || wrapper.lines.Length == 0)
             {
                 Debug.LogError("Failed to parse JSON or empty lines");
-                return new List<DialogueRecord>();
+                return new List<Runtime.DialogueRecord>();
             }
 
-            List<DialogueRecord> records = new List<DialogueRecord>();
+            List<Runtime.DialogueRecord> records = new List<Runtime.DialogueRecord>();
             baseId = chapterId * 1000; // 챕터 1 = 1000~, 챕터 2 = 2000~
 
             for (int i = 0; i < wrapper.lines.Length; i++)
             {
                 var line = wrapper.lines[i];
-                DialogueRecord record = new DialogueRecord();
+                Runtime.DialogueRecord record = new Runtime.DialogueRecord();
 
                 // 기본 필드
                 record.Fields["ID"] = (baseId + i).ToString();

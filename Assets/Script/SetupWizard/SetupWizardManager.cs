@@ -107,7 +107,7 @@ namespace IyagiAI.SetupWizard
         /// <summary>
         /// 위자드 완료 시 호출
         /// </summary>
-        private void OnWizardComplete()
+        public void OnWizardComplete()
         {
 #if UNITY_EDITOR
             // 프로젝트 데이터를 ScriptableObject로 저장

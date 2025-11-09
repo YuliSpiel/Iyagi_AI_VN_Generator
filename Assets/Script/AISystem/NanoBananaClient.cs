@@ -59,27 +59,36 @@ namespace IyagiAI.AISystem
 
             if (request.result == UnityWebRequest.Result.Success)
             {
+                // JSON 파싱 (try-catch는 yield 없이)
+                ImageGenResponse response = null;
                 try
                 {
-                    var response = JsonUtility.FromJson<ImageGenResponse>(request.downloadHandler.text);
-
-                    // 이미지 URL에서 다운로드
-                    UnityWebRequest imgRequest = UnityWebRequestTexture.GetTexture(response.image_url);
-                    yield return imgRequest.SendWebRequest();
-
-                    if (imgRequest.result == UnityWebRequest.Result.Success)
-                    {
-                        Texture2D texture = DownloadHandlerTexture.GetContent(imgRequest);
-                        onSuccess?.Invoke(texture, response.seed);
-                    }
-                    else
-                    {
-                        onError?.Invoke($"Image download failed: {imgRequest.error}");
-                    }
+                    response = JsonUtility.FromJson<ImageGenResponse>(request.downloadHandler.text);
                 }
                 catch (System.Exception e)
                 {
                     onError?.Invoke($"JSON parsing error: {e.Message}");
+                    yield break;
+                }
+
+                if (response == null || string.IsNullOrEmpty(response.image_url))
+                {
+                    onError?.Invoke("Invalid response: no image URL");
+                    yield break;
+                }
+
+                // 이미지 다운로드 (try-catch 밖에서)
+                UnityWebRequest imgRequest = UnityWebRequestTexture.GetTexture(response.image_url);
+                yield return imgRequest.SendWebRequest();
+
+                if (imgRequest.result == UnityWebRequest.Result.Success)
+                {
+                    Texture2D texture = DownloadHandlerTexture.GetContent(imgRequest);
+                    onSuccess?.Invoke(texture, response.seed);
+                }
+                else
+                {
+                    onError?.Invoke($"Image download failed: {imgRequest.error}");
                 }
             }
             else
@@ -131,27 +140,36 @@ namespace IyagiAI.AISystem
 
             if (request.result == UnityWebRequest.Result.Success)
             {
+                // JSON 파싱 (try-catch는 yield 없이)
+                ImageGenResponse response = null;
                 try
                 {
-                    var response = JsonUtility.FromJson<ImageGenResponse>(request.downloadHandler.text);
-
-                    // 이미지 다운로드
-                    UnityWebRequest imgRequest = UnityWebRequestTexture.GetTexture(response.image_url);
-                    yield return imgRequest.SendWebRequest();
-
-                    if (imgRequest.result == UnityWebRequest.Result.Success)
-                    {
-                        Texture2D texture = DownloadHandlerTexture.GetContent(imgRequest);
-                        onSuccess?.Invoke(texture);
-                    }
-                    else
-                    {
-                        onError?.Invoke($"Image download failed: {imgRequest.error}");
-                    }
+                    response = JsonUtility.FromJson<ImageGenResponse>(request.downloadHandler.text);
                 }
                 catch (System.Exception e)
                 {
                     onError?.Invoke($"JSON parsing error: {e.Message}");
+                    yield break;
+                }
+
+                if (response == null || string.IsNullOrEmpty(response.image_url))
+                {
+                    onError?.Invoke("Invalid response: no image URL");
+                    yield break;
+                }
+
+                // 이미지 다운로드 (try-catch 밖에서)
+                UnityWebRequest imgRequest = UnityWebRequestTexture.GetTexture(response.image_url);
+                yield return imgRequest.SendWebRequest();
+
+                if (imgRequest.result == UnityWebRequest.Result.Success)
+                {
+                    Texture2D texture = DownloadHandlerTexture.GetContent(imgRequest);
+                    onSuccess?.Invoke(texture);
+                }
+                else
+                {
+                    onError?.Invoke($"Image download failed: {imgRequest.error}");
                 }
             }
             else

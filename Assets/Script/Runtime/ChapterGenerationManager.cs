@@ -49,7 +49,7 @@ namespace IyagiAI.Runtime
             string prompt = BuildChapterPrompt(chapterId, state);
 
             bool completed = false;
-            List<DialogueRecord> records = null;
+            List<IyagiAI.Runtime.DialogueRecord> records = null;
 
             yield return geminiClient.GenerateContent(
                 prompt,
