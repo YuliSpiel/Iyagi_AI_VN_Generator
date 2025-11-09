@@ -175,25 +175,26 @@ namespace IyagiAI.SetupWizard
                 System.IO.Directory.CreateDirectory("Assets/VNProjects");
             }
 
-            UnityEditor.AssetDatabase.CreateAsset(projectData, savePath);
-
-            // 캐릭터 데이터도 저장
-            string charFolder = $"Assets/VNProjects/Characters";
-            if (!System.IO.Directory.Exists(charFolder))
+            // 기존 에셋이 있으면 삭제
+            if (System.IO.File.Exists(savePath))
             {
-                System.IO.Directory.CreateDirectory(charFolder);
+                UnityEditor.AssetDatabase.DeleteAsset(savePath);
+                Debug.Log($"Deleted existing project at {savePath}");
             }
 
+            UnityEditor.AssetDatabase.CreateAsset(projectData, savePath);
+
+            // 캐릭터 데이터를 서브 에셋으로 저장
             if (projectData.playerCharacter != null)
             {
-                string charPath = $"{charFolder}/{projectData.playerCharacter.characterName}.asset";
-                UnityEditor.AssetDatabase.CreateAsset(projectData.playerCharacter, charPath);
+                projectData.playerCharacter.name = projectData.playerCharacter.characterName;
+                UnityEditor.AssetDatabase.AddObjectToAsset(projectData.playerCharacter, projectData);
             }
 
             foreach (var npc in projectData.npcs)
             {
-                string charPath = $"{charFolder}/{npc.characterName}.asset";
-                UnityEditor.AssetDatabase.CreateAsset(npc, charPath);
+                npc.name = npc.characterName;
+                UnityEditor.AssetDatabase.AddObjectToAsset(npc, projectData);
             }
 
             UnityEditor.AssetDatabase.SaveAssets();
@@ -202,8 +203,30 @@ namespace IyagiAI.SetupWizard
             Debug.Log($"VN Project saved: {savePath}");
 #endif
 
-            // TODO: 게임 Scene으로 전환
-            // UnityEngine.SceneManagement.SceneManager.LoadScene("GameScene");
+            // SaveDataManager에 프로젝트 슬롯 생성
+            var existingSlot = SaveDataManager.Instance.GetProjectSlot(projectData.projectGuid);
+            if (existingSlot == null)
+            {
+                SaveDataManager.Instance.CreateProjectSlot(projectData);
+                Debug.Log($"Created project slot for: {projectData.gameTitle}");
+            }
+
+            // 첫 저장 파일 생성 (Chapter 1 시작)
+            var newSaveFile = SaveDataManager.Instance.CreateNewSaveFile(projectData.projectGuid, 1);
+            if (newSaveFile != null)
+            {
+                Debug.Log($"Created initial save file: {newSaveFile.saveFileId}");
+
+                // 저장 파일 로드 (PlayerPrefs에 저장)
+                SaveDataManager.Instance.LoadSaveFile(newSaveFile.saveFileId);
+
+                // 게임 씬으로 전환
+                UnityEngine.SceneManagement.SceneManager.LoadScene("GameScene");
+            }
+            else
+            {
+                Debug.LogError("Failed to create initial save file!");
+            }
         }
     }
 }

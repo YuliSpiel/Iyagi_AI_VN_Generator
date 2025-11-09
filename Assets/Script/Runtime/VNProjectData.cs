@@ -94,6 +94,14 @@ namespace IyagiAI.Runtime
         public string imagePath; // 저장된 이미지 경로 (예: "Image/CG/Ch1_CG1")
         public List<string> characterNames = new List<string>(); // 등장 캐릭터 이름 (레퍼런스용)
 
+        // CG 컬렉션용 추가 필드
+        [NonSerialized]
+        public bool isUnlocked; // 런타임에만 사용 (SaveDataManager에서 설정)
+
+        public string thumbnailPath => imagePath + "_thumb"; // 썸네일 경로
+        public string resourcePath => imagePath; // Resources.Load용 경로
+        public string description => sceneDescription; // UI 표시용 설명
+
         public CGMetadata() { }
 
         public CGMetadata(int chapter, int index, string title, string description)

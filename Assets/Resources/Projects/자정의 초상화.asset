@@ -1,0 +1,81 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: befa1dc7319404de884ddd3e12dabb4a, type: 3}
+  m_Name: "\uC790\uC815\uC758 \uCD08\uC0C1\uD654"
+  m_EditorClassIdentifier: 
+  gameTitle: "\uC790\uC815\uC758 \uCD08\uC0C1\uD654"
+  gamePremise: "\uC5B4\uB460\uC5D0 \uC78A\uD78C \uADC0\uC871\uC758 \uC18C\uB984 \uB07C\uCE58\uB3C4\uB85D
+    \uC0DD\uC0DD\uD55C \uCD08\uC0C1\uD654\uB97C \uBCF5\uC6D0\uD558\uB294 \uC784\uBB34\uB97C
+    \uB9E1\uC740 \uC80A\uC740 \uC608\uC220 \uBCF5\uC6D0\uAC00\uB294 \uC791\uC5C5
+    \uB3C4\uC911 \uAE30\uBB18\uD55C \uD604\uC0C1\uACFC \uB9C8\uC8FC\uD55C\uB2E4.
+    \uCD08\uC0C1\uD654 \uC18D \uB208\uB3D9\uC790\uB294 \uB2F9\uC2E0\uC744 \uCAD3\uB294
+    \uB4EF\uD558\uACE0, \uBE44\uADF9\uC801\uC778 \uACFC\uAC70\uC758 \uBE44\uBC00\uC744
+    \uC18D\uC0AD\uC774\uB294 \uBAA9\uC18C\uB9AC\uAC00 \uB4E4\uB824\uC628\uB2E4. \uB2F9\uC2E0\uC740
+    \uC774 \uADF8\uB9BC\uC774 \uB2E8\uC21C\uD55C \uC791\uD488\uC774 \uC544\uB2CC,
+    \uACFC\uAC70\uC758 \uC6D0\uD63C\uACFC \uC5F0\uACB0\uB41C \uD1B5\uB85C\uC774\uBA70
+    \uC608\uC220\uACFC \uAD11\uAE30 \uC0AC\uC774\uC758 \uACBD\uACC4\uAC00 \uD750\uB824\uC9D0\uC744
+    \uAE68\uB2EB\uB294\uB2E4."
+  genre: 4
+  tone: 2
+  playtime: 0
+  coreValues:
+  - name: "\uC9C4\uC2E4"
+    derivedSkills:
+    - "\uAD00\uCC30\uB825"
+    - "\uBD84\uC11D\uB825"
+    - "\uD1B5\uCC30\uB825"
+    - "\uACE0\uC99D"
+  - name: "\uC774\uC131"
+    derivedSkills:
+    - "\uB0C9\uCCA0\uD568"
+    - "\uB17C\uB9AC\uB825"
+    - "\uC9D1\uC911\uB825"
+    - "\uC790\uC81C\uB825"
+  - name: "\uC608\uC220"
+    derivedSkills:
+    - "\uBCF5\uC6D0\uC220"
+    - "\uBBF8\uD559\uC801 \uAC10\uAC01"
+    - "\uC12C\uC138\uD568"
+    - "\uC548\uBAA9"
+  totalChapters: 3
+  endings:
+  - endingId: 1
+    endingName: "\uC9C4\uC2E4 + \uC138\uD604"
+    endingDescription: "\uC9C4\uC2E4 \uAC00\uCE58\uB97C \uB2EC\uC131\uD558\uACE0
+      \uC138\uD604\uC640\uC758 \uAD00\uACC4\uB97C \uBC1C\uC804\uC2DC\uD0A8 \uACB0\uB9D0"
+  - endingId: 2
+    endingName: "\uC9C4\uC2E4 + \uCE74\uC778"
+    endingDescription: "\uC9C4\uC2E4 \uAC00\uCE58\uB97C \uB2EC\uC131\uD558\uACE0
+      \uCE74\uC778\uC640\uC758 \uAD00\uACC4\uB97C \uBC1C\uC804\uC2DC\uD0A8 \uACB0\uB9D0"
+  - endingId: 3
+    endingName: "\uC774\uC131 + \uC138\uD604"
+    endingDescription: "\uC774\uC131 \uAC00\uCE58\uB97C \uB2EC\uC131\uD558\uACE0
+      \uC138\uD604\uC640\uC758 \uAD00\uACC4\uB97C \uBC1C\uC804\uC2DC\uD0A8 \uACB0\uB9D0"
+  - endingId: 4
+    endingName: "\uC774\uC131 + \uCE74\uC778"
+    endingDescription: "\uC774\uC131 \uAC00\uCE58\uB97C \uB2EC\uC131\uD558\uACE0
+      \uCE74\uC778\uC640\uC758 \uAD00\uACC4\uB97C \uBC1C\uC804\uC2DC\uD0A8 \uACB0\uB9D0"
+  - endingId: 5
+    endingName: "\uC608\uC220 + \uC138\uD604"
+    endingDescription: "\uC608\uC220 \uAC00\uCE58\uB97C \uB2EC\uC131\uD558\uACE0
+      \uC138\uD604\uC640\uC758 \uAD00\uACC4\uB97C \uBC1C\uC804\uC2DC\uD0A8 \uACB0\uB9D0"
+  - endingId: 6
+    endingName: "\uC608\uC220 + \uCE74\uC778"
+    endingDescription: "\uC608\uC220 \uAC00\uCE58\uB97C \uB2EC\uC131\uD558\uACE0
+      \uCE74\uC778\uC640\uC758 \uAD00\uACC4\uB97C \uBC1C\uC804\uC2DC\uD0A8 \uACB0\uB9D0"
+  playerCharacter: {fileID: 0}
+  npcs:
+  - {fileID: 0}
+  - {fileID: 0}
+  allCGs: []
+  projectGuid: 08d26899-1e17-4d41-8c08-fbda5b5bfee2
+  createdTimestamp: 1762694680

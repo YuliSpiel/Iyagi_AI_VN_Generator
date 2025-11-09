@@ -484,6 +484,25 @@ JSON 형식으로만 출력:
             romanceableToggle.isOn = false;
             genderDropdown.value = 0;
             archetypeDropdown.value = 0;
+
+            // 버튼 텍스트 초기화
+            if (autoFillButton != null)
+            {
+                var autoFillBtnText = autoFillButton.GetComponentInChildren<TMP_Text>();
+                if (autoFillBtnText != null)
+                {
+                    autoFillBtnText.text = "AI 자동 생성";
+                }
+            }
+
+            if (generateFaceButton != null)
+            {
+                var generateFaceBtnText = generateFaceButton.GetComponentInChildren<TMP_Text>();
+                if (generateFaceBtnText != null)
+                {
+                    generateFaceBtnText.text = "Generate Face";
+                }
+            }
         }
 
         // ===== JSON 스키마 =====

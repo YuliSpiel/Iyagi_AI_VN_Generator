@@ -1,19 +1,62 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 
 namespace IyagiAI.Runtime
 {
     /// <summary>
-    /// 세이브/로드 관리자
-    /// GameStateSnapshot을 JSON으로 저장/로드
+    /// 세이브/로드 관리자 (싱글톤)
+    /// - 프로젝트 슬롯 관리
+    /// - 저장 파일 관리
+    /// - CG 컬렉션 관리
     /// </summary>
     public class SaveDataManager : MonoBehaviour
     {
+        // 싱글톤
+        private static SaveDataManager _instance;
+        public static SaveDataManager Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    var go = new GameObject("SaveDataManager");
+                    _instance = go.AddComponent<SaveDataManager>();
+                    DontDestroyOnLoad(go);
+                }
+                return _instance;
+            }
+        }
+
         private const string SAVE_FOLDER = "Saves";
         private const int MAX_SAVE_SLOTS = 10;
 
         private string SaveFolderPath => Path.Combine(Application.persistentDataPath, SAVE_FOLDER);
+        private string ProjectSlotsFile => Path.Combine(SaveFolderPath, "projects.json");
+
+        private List<ProjectSlot> projectSlots = new List<ProjectSlot>();
+
+        private void Awake()
+        {
+            if (_instance != null && _instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
+            _instance = this;
+            DontDestroyOnLoad(gameObject);
+
+            // 저장 데이터 폴더 생성
+            if (!Directory.Exists(SaveFolderPath))
+            {
+                Directory.CreateDirectory(SaveFolderPath);
+            }
+
+            LoadAllProjectSlots();
+        }
 
         /// <summary>
         /// 게임 저장
@@ -218,6 +261,239 @@ namespace IyagiAI.Runtime
         {
             return Path.Combine(SaveFolderPath, $"save_{slotIndex}.json");
         }
+
+        // ===== 프로젝트 슬롯 관리 (새로운 시스템) =====
+
+        private void LoadAllProjectSlots()
+        {
+            if (!File.Exists(ProjectSlotsFile))
+            {
+                projectSlots = new List<ProjectSlot>();
+                return;
+            }
+
+            try
+            {
+                string json = File.ReadAllText(ProjectSlotsFile);
+                var wrapper = JsonUtility.FromJson<ProjectSlotListWrapper>(json);
+                projectSlots = wrapper.projects ?? new List<ProjectSlot>();
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Failed to load project slots: {e.Message}");
+                projectSlots = new List<ProjectSlot>();
+            }
+        }
+
+        private void SaveAllProjectSlots()
+        {
+            try
+            {
+                var wrapper = new ProjectSlotListWrapper { projects = projectSlots };
+                string json = JsonUtility.ToJson(wrapper, true);
+                File.WriteAllText(ProjectSlotsFile, json);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Failed to save project slots: {e.Message}");
+            }
+        }
+
+        public List<ProjectSlot> GetAllProjectSlots()
+        {
+            return projectSlots.OrderByDescending(p => p.lastPlayedDate).ToList();
+        }
+
+        public ProjectSlot GetProjectSlot(string projectGuid)
+        {
+            return projectSlots.FirstOrDefault(p => p.projectGuid == projectGuid);
+        }
+
+        public ProjectSlot CreateProjectSlot(VNProjectData projectData)
+        {
+            var slot = new ProjectSlot
+            {
+                projectGuid = projectData.projectGuid,
+                projectName = projectData.gameTitle,
+                totalChapters = projectData.totalChapters,
+                createdDate = DateTime.Now,
+                lastPlayedDate = DateTime.Now,
+                saveFiles = new List<SaveFile>(),
+                unlockedCGs = new List<string>()
+            };
+
+            projectSlots.Add(slot);
+            SaveAllProjectSlots();
+
+            return slot;
+        }
+
+        public void DeleteProjectSlot(string projectGuid)
+        {
+            var slot = GetProjectSlot(projectGuid);
+            if (slot != null)
+            {
+                foreach (var saveFile in slot.saveFiles.ToList())
+                {
+                    DeleteSaveFile(saveFile.saveFileId);
+                }
+
+                projectSlots.Remove(slot);
+                SaveAllProjectSlots();
+            }
+        }
+
+        // ===== 저장 파일 관리 (새로운 시스템) =====
+
+        public SaveFile GetLastPlayedSaveFile()
+        {
+            SaveFile lastSaveFile = null;
+            DateTime latestTime = DateTime.MinValue;
+
+            foreach (var project in projectSlots)
+            {
+                foreach (var save in project.saveFiles)
+                {
+                    if (save.lastPlayedDate > latestTime)
+                    {
+                        latestTime = save.lastPlayedDate;
+                        lastSaveFile = save;
+                    }
+                }
+            }
+
+            return lastSaveFile;
+        }
+
+        public SaveFile CreateNewSaveFile(string projectGuid, int startChapter)
+        {
+            var project = GetProjectSlot(projectGuid);
+            if (project == null)
+            {
+                Debug.LogError($"Project not found: {projectGuid}");
+                return null;
+            }
+
+            int slotNumber = project.saveFiles.Count + 1;
+
+            var saveFile = new SaveFile
+            {
+                saveFileId = Guid.NewGuid().ToString(),
+                projectGuid = projectGuid,
+                slotNumber = slotNumber,
+                currentChapter = startChapter,
+                totalChapters = project.totalChapters,
+                createdDate = DateTime.Now,
+                lastPlayedDate = DateTime.Now,
+                totalPlaytimeSeconds = 0,
+                gameState = new GameState()
+            };
+
+            project.saveFiles.Add(saveFile);
+            project.lastPlayedDate = DateTime.Now;
+            SaveAllProjectSlots();
+
+            return saveFile;
+        }
+
+        public void LoadSaveFile(string saveFileId)
+        {
+            PlayerPrefs.SetString("CurrentSaveFileId", saveFileId);
+            PlayerPrefs.Save();
+        }
+
+        public void DeleteSaveFile(string saveFileId)
+        {
+            foreach (var project in projectSlots)
+            {
+                var saveFile = project.saveFiles.FirstOrDefault(s => s.saveFileId == saveFileId);
+                if (saveFile != null)
+                {
+                    project.saveFiles.Remove(saveFile);
+                    SaveAllProjectSlots();
+                    return;
+                }
+            }
+        }
+
+        // ===== CG 컬렉션 관리 =====
+
+        public List<CGMetadata> GetCGCollection(string projectGuid)
+        {
+            var project = GetProjectSlot(projectGuid);
+            if (project == null)
+                return new List<CGMetadata>();
+
+            var projectData = Resources.LoadAll<VNProjectData>("VNProjects")
+                .FirstOrDefault(p => p.projectGuid == projectGuid);
+
+            if (projectData == null)
+                return new List<CGMetadata>();
+
+            foreach (var cg in projectData.allCGs)
+            {
+                cg.isUnlocked = project.unlockedCGs.Contains(cg.cgId.ToString());
+            }
+
+            return projectData.allCGs;
+        }
+
+        public void UnlockCG(string projectGuid, int cgId)
+        {
+            var project = GetProjectSlot(projectGuid);
+            if (project != null)
+            {
+                string cgIdStr = cgId.ToString();
+                if (!project.unlockedCGs.Contains(cgIdStr))
+                {
+                    project.unlockedCGs.Add(cgIdStr);
+                    SaveAllProjectSlots();
+                }
+            }
+        }
+    }
+
+    // ===== 새로운 데이터 클래스 =====
+
+    [Serializable]
+    public class ProjectSlotListWrapper
+    {
+        public List<ProjectSlot> projects;
+    }
+
+    [Serializable]
+    public class ProjectSlot
+    {
+        public string projectGuid;
+        public string projectName;
+        public int totalChapters;
+        public DateTime createdDate;
+        public DateTime lastPlayedDate;
+        public List<SaveFile> saveFiles;
+        public List<string> unlockedCGs;
+    }
+
+    [Serializable]
+    public class SaveFile
+    {
+        public string saveFileId;
+        public string projectGuid;
+        public int slotNumber;
+        public int currentChapter;
+        public int totalChapters;
+        public DateTime createdDate;
+        public DateTime lastPlayedDate;
+        public int totalPlaytimeSeconds;
+        public GameState gameState;
+    }
+
+    [Serializable]
+    public class GameState
+    {
+        public Dictionary<string, int> coreValueScores = new Dictionary<string, int>();
+        public Dictionary<string, int> skillScores = new Dictionary<string, int>();
+        public Dictionary<string, int> npcAffections = new Dictionary<string, int>();
+        public List<string> previousChoices = new List<string>();
     }
 
     /// <summary>
