@@ -105,6 +105,61 @@ namespace IyagiAI.SetupWizard
         }
 
         /// <summary>
+        /// Core Value × 공략가능 NPC 조합으로 엔딩 자동 생성
+        /// Step 5 (NPC 생성) 완료 후 호출
+        /// </summary>
+        public void GenerateEndings()
+        {
+            projectData.endings.Clear();
+
+            // 공략 가능한 NPC 필터링
+            var romanceableNPCs = projectData.npcs.FindAll(npc => npc.isRomanceable);
+
+            if (romanceableNPCs.Count == 0)
+            {
+                Debug.LogWarning("No romanceable NPCs found. Endings will not be generated.");
+                return;
+            }
+
+            if (projectData.coreValues.Count == 0)
+            {
+                Debug.LogWarning("No core values found. Endings will not be generated.");
+                return;
+            }
+
+            Debug.Log($"=== Generating Endings: {projectData.coreValues.Count} Core Values × {romanceableNPCs.Count} Romanceable NPCs ===");
+
+            int endingId = 1;
+            foreach (var coreValue in projectData.coreValues)
+            {
+                foreach (var npc in romanceableNPCs)
+                {
+                    var ending = new EndingCondition
+                    {
+                        endingId = endingId,
+                        endingName = $"{coreValue.name} + {npc.characterName}",
+                        endingDescription = $"{coreValue.name} 가치를 달성하고 {npc.characterName}와의 관계를 발전시킨 결말",
+                        requiredValues = new System.Collections.Generic.Dictionary<string, int>(),
+                        requiredAffections = new System.Collections.Generic.Dictionary<string, int>()
+                    };
+
+                    // Core Value 요구치 설정 (해당 가치가 70 이상)
+                    ending.requiredValues[coreValue.name] = 70;
+
+                    // NPC 호감도 요구치 설정 (해당 NPC가 80 이상)
+                    ending.requiredAffections[npc.characterName] = 80;
+
+                    projectData.endings.Add(ending);
+                    Debug.Log($"[Ending {endingId}] Created: {ending.endingName}");
+
+                    endingId++;
+                }
+            }
+
+            Debug.Log($"=== Total {projectData.endings.Count} endings generated ===");
+        }
+
+        /// <summary>
         /// 위자드 완료 시 호출
         /// </summary>
         public void OnWizardComplete()

@@ -58,17 +58,54 @@ namespace IyagiAI.SetupWizard
 
             if (nextStepButton != null)
                 nextStepButton.interactable = isValid;
+
+            // 입력이 있으면 Auto-Suggest 버튼 텍스트 변경
+            bool hasInput = !string.IsNullOrEmpty(value1NameInput.text) ||
+                           !string.IsNullOrEmpty(value2NameInput.text) ||
+                           !string.IsNullOrEmpty(value3NameInput.text) ||
+                           !string.IsNullOrEmpty(value4NameInput.text);
+
+            if (autoSuggestButton != null)
+            {
+                var btnText = autoSuggestButton.GetComponentInChildren<TMP_Text>();
+                if (btnText != null)
+                {
+                    btnText.text = hasInput ? "AI 풍부화" : "AI 자동 생성";
+                }
+            }
         }
 
         public void OnAutoSuggestClicked()
         {
-            autoSuggestButton.interactable = false;
+            Debug.Log("Auto-Suggest button clicked!");
+            if (autoSuggestButton != null)
+                autoSuggestButton.interactable = false;
             StartCoroutine(AutoSuggestValues());
         }
 
         IEnumerator AutoSuggestValues()
         {
-            string prompt = $@"비주얼 노벨 게임을 위한 Core Value와 파생 스탯을 추천해줘.
+            Debug.Log("AutoSuggestValues coroutine started");
+            Debug.Log($"Game Title: {wizardManager.projectData.gameTitle}");
+            Debug.Log($"Game Premise: {wizardManager.projectData.gamePremise}");
+
+            // 사용자 입력 확인
+            string userValue1 = value1NameInput.text.Trim();
+            string userValue2 = value2NameInput.text.Trim();
+            string userValue3 = value3NameInput.text.Trim();
+            string userValue4 = value4NameInput.text.Trim();
+            string userSkills1 = value1SkillsInput.text.Trim();
+            string userSkills2 = value2SkillsInput.text.Trim();
+            string userSkills3 = value3SkillsInput.text.Trim();
+            string userSkills4 = value4SkillsInput.text.Trim();
+
+            string prompt;
+
+            if (string.IsNullOrEmpty(userValue1) && string.IsNullOrEmpty(userValue2) &&
+                string.IsNullOrEmpty(userValue3) && string.IsNullOrEmpty(userValue4))
+            {
+                // 완전 자동 생성
+                prompt = $@"비주얼 노벨 게임을 위한 Core Value와 파생 스탯을 추천해줘.
 
 게임 정보:
 제목: {wizardManager.projectData.gameTitle}
@@ -96,13 +133,61 @@ JSON 형식으로만 출력:
     }}
   ]
 }}";
+            }
+            else
+            {
+                // 입력 풍부화
+                prompt = $@"사용자가 비주얼 노벨 게임의 Core Value 아이디어를 개떡같이 입력했어. 이걸 찰떡같이 이해하고 풍부하게 발전시켜줘.
+
+게임 정보:
+제목: {wizardManager.projectData.gameTitle}
+줄거리: {wizardManager.projectData.gamePremise}
+장르: {wizardManager.projectData.genre}
+톤: {wizardManager.projectData.tone}
+
+사용자 입력:
+Core Value 1: {(string.IsNullOrEmpty(userValue1) ? "(없음)" : userValue1)}
+  파생 스탯: {(string.IsNullOrEmpty(userSkills1) ? "(없음)" : userSkills1)}
+Core Value 2: {(string.IsNullOrEmpty(userValue2) ? "(없음)" : userValue2)}
+  파생 스탯: {(string.IsNullOrEmpty(userSkills2) ? "(없음)" : userSkills2)}
+Core Value 3: {(string.IsNullOrEmpty(userValue3) ? "(없음)" : userValue3)}
+  파생 스탯: {(string.IsNullOrEmpty(userSkills3) ? "(없음)" : userSkills3)}
+Core Value 4: {(string.IsNullOrEmpty(userValue4) ? "(없음)" : userValue4)}
+  파생 스탯: {(string.IsNullOrEmpty(userSkills4) ? "(없음)" : userSkills4)}
+
+요구사항:
+1. 사용자 의도를 정확히 파악하고 핵심은 유지
+2. Core Value 이름이 비어있거나 어색하면 게임 세계관에 맞게 개선
+3. 파생 스탯이 비어있으면 각 Core Value에 맞는 2~4개의 구체적인 능력 추천
+4. 파생 스탯이 있으면 풍부하게 확장 (2~4개가 되도록)
+5. 오타, 맞춤법 수정
+6. 애매한 표현은 명확하게
+7. 최소 2개, 최대 4개의 Core Value 출력
+8. 한국어로 출력
+
+JSON 형식으로만 출력:
+{{
+  ""coreValues"": [
+    {{
+      ""name"": ""다듬어진 Core Value 이름"",
+      ""derivedSkills"": [""풍부해진 스탯1"", ""풍부해진 스탯2"", ""풍부해진 스탯3""]
+    }},
+    {{
+      ""name"": ""다듬어진 Core Value 이름"",
+      ""derivedSkills"": [""풍부해진 스탯1"", ""풍부해진 스탯2"", ""풍부해진 스탯3""]
+    }}
+  ]
+}}";
+            }
 
             bool completed = false;
             string result = null;
 
+            Debug.Log("Calling Gemini API for Core Values...");
             yield return wizardManager.geminiClient.GenerateContent(
                 prompt,
                 (response) => {
+                    Debug.Log($"API Response received: {response.Substring(0, Mathf.Min(200, response.Length))}...");
                     result = response;
                     completed = true;
                 },
@@ -116,14 +201,24 @@ JSON 형식으로만 출력:
 
             if (!string.IsNullOrEmpty(result))
             {
+                Debug.Log("Parsing response...");
                 ParseAutoSuggestResponse(result);
             }
+            else
+            {
+                Debug.LogWarning("API returned empty result");
+            }
 
-            autoSuggestButton.interactable = true;
+            if (autoSuggestButton != null)
+                autoSuggestButton.interactable = true;
+            Debug.Log("AutoSuggestValues coroutine completed");
         }
 
         void ParseAutoSuggestResponse(string jsonResponse)
         {
+            Debug.Log("=== ParseAutoSuggestResponse START ===");
+            Debug.Log($"Full response length: {jsonResponse.Length}");
+
             try
             {
                 int startIndex = jsonResponse.IndexOf('{');
@@ -131,49 +226,89 @@ JSON 형식으로만 출력:
 
                 if (startIndex == -1 || endIndex == -1)
                 {
-                    Debug.LogError("Invalid JSON format");
+                    Debug.LogError("Invalid JSON format - no braces found");
+                    Debug.LogError($"Response: {jsonResponse}");
                     return;
                 }
 
                 string json = jsonResponse.Substring(startIndex, endIndex - startIndex + 1);
+                Debug.Log($"Extracted JSON: {json}");
+
                 var data = JsonUtility.FromJson<CoreValuesSuggestion>(json);
 
-                if (data.coreValues != null && data.coreValues.Length > 0)
+                if (data == null || data.coreValues == null || data.coreValues.Length == 0)
                 {
-                    // Value 1
-                    if (data.coreValues.Length > 0)
-                    {
-                        value1NameInput.text = data.coreValues[0].name;
-                        value1SkillsInput.text = string.Join(", ", data.coreValues[0].derivedSkills);
-                    }
+                    Debug.LogError("Invalid response data - data is null or empty");
+                    Debug.LogError($"Data: {data}, coreValues: {data?.coreValues}, Length: {data?.coreValues?.Length}");
+                    return;
+                }
 
-                    // Value 2
-                    if (data.coreValues.Length > 1)
-                    {
-                        value2NameInput.text = data.coreValues[1].name;
-                        value2SkillsInput.text = string.Join(", ", data.coreValues[1].derivedSkills);
-                    }
+                Debug.Log($"Parsed {data.coreValues.Length} core values");
 
-                    // Value 3
-                    if (data.coreValues.Length > 2)
-                    {
-                        value3NameInput.text = data.coreValues[2].name;
-                        value3SkillsInput.text = string.Join(", ", data.coreValues[2].derivedSkills);
-                    }
+                // Value 1
+                Debug.Log($"value1NameInput is null? {value1NameInput == null}");
+                Debug.Log($"value1SkillsInput is null? {value1SkillsInput == null}");
 
-                    // Value 4 (optional)
-                    if (data.coreValues.Length > 3)
+                if (data.coreValues.Length > 0 && value1NameInput != null && value1SkillsInput != null)
+                {
+                    var cv1 = data.coreValues[0];
+                    if (cv1 != null && !string.IsNullOrEmpty(cv1.name))
                     {
-                        value4NameInput.text = data.coreValues[3].name;
-                        value4SkillsInput.text = string.Join(", ", data.coreValues[3].derivedSkills);
+                        Debug.Log($"Setting Value 1: {cv1.name}");
+                        value1NameInput.text = cv1.name;
+                        value1SkillsInput.text = cv1.derivedSkills != null ? string.Join(", ", cv1.derivedSkills) : "";
+                        Debug.Log($"Value 1 set successfully! Name: {value1NameInput.text}");
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"cv1 is null or name is empty. cv1 null? {cv1 == null}, name: {cv1?.name}");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"Cannot set Value 1. Count: {data.coreValues.Length}, nameInput null: {value1NameInput == null}, skillsInput null: {value1SkillsInput == null}");
+                }
+
+                // Value 2
+                if (data.coreValues.Length > 1 && value2NameInput != null && value2SkillsInput != null)
+                {
+                    var cv2 = data.coreValues[1];
+                    if (cv2 != null && !string.IsNullOrEmpty(cv2.name))
+                    {
+                        value2NameInput.text = cv2.name;
+                        value2SkillsInput.text = cv2.derivedSkills != null ? string.Join(", ", cv2.derivedSkills) : "";
+                    }
+                }
+
+                // Value 3
+                if (data.coreValues.Length > 2 && value3NameInput != null && value3SkillsInput != null)
+                {
+                    var cv3 = data.coreValues[2];
+                    if (cv3 != null && !string.IsNullOrEmpty(cv3.name))
+                    {
+                        value3NameInput.text = cv3.name;
+                        value3SkillsInput.text = cv3.derivedSkills != null ? string.Join(", ", cv3.derivedSkills) : "";
+                    }
+                }
+
+                // Value 4 (optional)
+                if (data.coreValues.Length > 3 && value4NameInput != null && value4SkillsInput != null)
+                {
+                    var cv4 = data.coreValues[3];
+                    if (cv4 != null && !string.IsNullOrEmpty(cv4.name))
+                    {
+                        value4NameInput.text = cv4.name;
+                        value4SkillsInput.text = cv4.derivedSkills != null ? string.Join(", ", cv4.derivedSkills) : "";
                     }
                 }
 
                 ValidateInputs();
+                Debug.Log("=== ParseAutoSuggestResponse SUCCESS ===");
             }
             catch (System.Exception e)
             {
                 Debug.LogError($"Failed to parse response: {e.Message}");
+                Debug.LogError($"Stack trace: {e.StackTrace}");
             }
         }
 

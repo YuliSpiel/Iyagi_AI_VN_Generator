@@ -429,9 +429,12 @@ public class SceneSetupHelper : EditorWindow
 
             step3.chapterCountDropdown = CreateDropdown("ChapterCountDropdown", panel.transform, 0.1f, 0.7f, 0.5f, 0.77f);
 
-            step3.ending1NameInput = CreateInputField("Ending1NameInput", panel.transform, "Ending 1 Name", 0.1f, 0.55f, 0.9f, 0.62f);
-            step3.ending2NameInput = CreateInputField("Ending2NameInput", panel.transform, "Ending 2 Name", 0.1f, 0.45f, 0.9f, 0.52f);
-            step3.ending3NameInput = CreateInputField("Ending3NameInput", panel.transform, "Ending 3 Name (Optional)", 0.1f, 0.35f, 0.9f, 0.42f);
+            // 안내 텍스트 추가
+            GameObject infoTextObj = CreateTextMeshPro("InfoText", panel.transform);
+            step3.infoText = infoTextObj.GetComponent<TMP_Text>();
+            step3.infoText.fontSize = 24;
+            step3.infoText.alignment = TextAlignmentOptions.Center;
+            SetPosition(infoTextObj.GetComponent<RectTransform>(), 0.1f, 0.4f, 0.9f, 0.6f);
 
             step3.nextStepButton = CreateButton("NextStepButton", panel.transform).GetComponent<Button>();
             SetPosition(step3.nextStepButton.GetComponent<RectTransform>(), 0.7f, 0.05f, 0.9f, 0.12f);

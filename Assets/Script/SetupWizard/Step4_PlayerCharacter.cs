@@ -39,10 +39,11 @@ namespace IyagiAI.SetupWizard
 
         void Start()
         {
-            // faceGenerator 연결
+            // faceGenerator 연결 및 히스토리 초기화
             if (faceGenerator != null)
             {
                 faceGenerator.previewImage = previewImage;
+                faceGenerator.ClearHistory(); // Step4 시작 시 히스토리 초기화
             }
 
             // 드롭다운 초기화
@@ -257,21 +258,37 @@ JSON 형식으로만 출력:
                 string json = jsonResponse.Substring(startIndex, endIndex - startIndex + 1);
                 var data = JsonUtility.FromJson<CharacterAutoFillData>(json);
 
-                nameInput.text = data.name;
-                ageInput.text = data.age.ToString();
-                appearanceInput.text = data.appearance;
-                personalityInput.text = data.personality;
+                if (data == null)
+                {
+                    Debug.LogError("Failed to parse JSON data");
+                    return;
+                }
+
+                if (nameInput != null && !string.IsNullOrEmpty(data.name))
+                    nameInput.text = data.name;
+                if (ageInput != null)
+                    ageInput.text = data.age.ToString();
+                if (appearanceInput != null && !string.IsNullOrEmpty(data.appearance))
+                    appearanceInput.text = data.appearance;
+                if (personalityInput != null && !string.IsNullOrEmpty(data.personality))
+                    personalityInput.text = data.personality;
 
                 // Gender 설정
-                if (System.Enum.TryParse<Gender>(data.gender, out Gender g))
+                if (genderDropdown != null && !string.IsNullOrEmpty(data.gender))
                 {
-                    genderDropdown.value = (int)g;
+                    if (System.Enum.TryParse<Gender>(data.gender, out Gender g))
+                    {
+                        genderDropdown.value = (int)g;
+                    }
                 }
 
                 // Archetype 설정
-                if (System.Enum.TryParse<Archetype>(data.archetype, out Archetype a))
+                if (archetypeDropdown != null && !string.IsNullOrEmpty(data.archetype))
                 {
-                    archetypeDropdown.value = (int)a;
+                    if (System.Enum.TryParse<Archetype>(data.archetype, out Archetype a))
+                    {
+                        archetypeDropdown.value = (int)a;
+                    }
                 }
 
                 ValidateInputs();
@@ -302,6 +319,14 @@ JSON 형식으로만 출력:
                 () => {
                     generateFaceButton.interactable = true;
                     confirmButton.interactable = true;
+
+                    // 버튼 텍스트를 "Generate More"로 변경
+                    var btnText = generateFaceButton.GetComponentInChildren<TMP_Text>();
+                    if (btnText != null)
+                    {
+                        btnText.text = "Generate More";
+                    }
+
                     UpdatePreviewNavigation();
                 }
             );

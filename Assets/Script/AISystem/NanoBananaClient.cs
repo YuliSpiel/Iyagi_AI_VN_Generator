@@ -55,11 +55,8 @@ namespace IyagiAI.AISystem
                             new GeminiImageRequestPart { text = prompt }
                         }
                     }
-                },
-                generationConfig = new ImageGenerationConfig
-                {
-                    responseMimeType = "image/png"
                 }
+                // generationConfig는 이미지 생성에서 지원하지 않음
             };
 
             string json = JsonUtility.ToJson(requestBody);
@@ -74,6 +71,11 @@ namespace IyagiAI.AISystem
 
             if (request.result == UnityWebRequest.Result.Success)
             {
+                // 응답 디버깅
+                Debug.Log("=== Gemini Image API Response ===");
+                Debug.Log($"Response length: {request.downloadHandler.text.Length}");
+                Debug.Log($"First 500 chars: {request.downloadHandler.text.Substring(0, Mathf.Min(500, request.downloadHandler.text.Length))}");
+
                 // JSON 파싱
                 GeminiImageResponse response = null;
                 try
@@ -88,29 +90,49 @@ namespace IyagiAI.AISystem
 
                 if (response == null || response.candidates == null || response.candidates.Length == 0)
                 {
-                    onError?.Invoke("Invalid response: no candidates");
+                    onError?.Invoke($"Invalid response: no candidates\nFull response: {request.downloadHandler.text}");
                     yield break;
                 }
+
+                Debug.Log($"Candidates count: {response.candidates.Length}");
 
                 // 첫 번째 candidate의 parts에서 inline_data 추출
                 var candidate = response.candidates[0];
                 if (candidate.content == null || candidate.content.parts == null || candidate.content.parts.Length == 0)
                 {
-                    onError?.Invoke("Invalid response: no content parts");
+                    onError?.Invoke($"Invalid response: no content parts\nFull response: {request.downloadHandler.text}");
                     yield break;
                 }
 
-                var part = candidate.content.parts[0];
-                if (part.inline_data == null || string.IsNullOrEmpty(part.inline_data.data))
+                Debug.Log($"Parts count: {candidate.content.parts.Length}");
+
+                // 모든 parts를 순회하여 inlineData가 있는 part 찾기
+                GeminiImageResponsePart imagePart = null;
+                foreach (var p in candidate.content.parts)
                 {
-                    onError?.Invoke("Invalid response: no inline_data");
+                    if (p.inlineData != null && !string.IsNullOrEmpty(p.inlineData.data))
+                    {
+                        imagePart = p;
+                        Debug.Log($"Found image in part with mimeType: {p.inlineData.mimeType}");
+                        Debug.Log($"Image data length: {p.inlineData.data.Length}");
+                        break;
+                    }
+                    else if (!string.IsNullOrEmpty(p.text))
+                    {
+                        Debug.Log($"Part has text: {p.text.Substring(0, Mathf.Min(100, p.text.Length))}...");
+                    }
+                }
+
+                if (imagePart == null || imagePart.inlineData == null || string.IsNullOrEmpty(imagePart.inlineData.data))
+                {
+                    onError?.Invoke($"Invalid response: no inlineData found in any part\nFull response: {request.downloadHandler.text}");
                     yield break;
                 }
 
                 // Base64 이미지 디코딩
                 try
                 {
-                    byte[] imageBytes = System.Convert.FromBase64String(part.inline_data.data);
+                    byte[] imageBytes = System.Convert.FromBase64String(imagePart.inlineData.data);
                     Texture2D texture = new Texture2D(2, 2);
                     texture.LoadImage(imageBytes);
                     onSuccess?.Invoke(texture, usedSeed);
@@ -189,7 +211,6 @@ namespace IyagiAI.AISystem
         private class GeminiImageRequest
         {
             public GeminiImageContent[] contents;
-            public ImageGenerationConfig generationConfig;
         }
 
         [System.Serializable]
@@ -205,25 +226,19 @@ namespace IyagiAI.AISystem
             public string text;
         }
 
-        // 응답용 Part (inline_data 포함 가능)
+        // 응답용 Part (inlineData 포함 가능)
         [System.Serializable]
         private class GeminiImageResponsePart
         {
             public string text;
-            public InlineData inline_data;
+            public InlineData inlineData;
         }
 
         [System.Serializable]
         private class InlineData
         {
-            public string mime_type;
+            public string mimeType;
             public string data; // Base64 encoded
-        }
-
-        [System.Serializable]
-        private class ImageGenerationConfig
-        {
-            public string responseMimeType;
         }
 
         [System.Serializable]

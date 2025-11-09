@@ -78,11 +78,18 @@ Resolution: 2048×4096.";
                 character.standingSprites = new Dictionary<string, Sprite>();
             }
 
+            Debug.Log($"=== Starting standing sprite generation for {character.characterName} ===");
+            Debug.Log($"Total expressions to generate: {expressions.Length}");
+
+            int currentIndex = 0;
             foreach (var expr in expressions)
             {
+                currentIndex++;
                 string exprText = expr.ToString().ToLower();
                 string poseText = "normal";
                 string key = $"{exprText}_{poseText}";
+
+                Debug.Log($"[{currentIndex}/{expressions.Length}] Generating {key} for {character.characterName}...");
 
                 string poseDesc = poseDescriptions[Runtime.Pose.Normal];
                 string fullPrompt = isFirst
@@ -100,7 +107,7 @@ Resolution: 2048×4096.";
                         completed = true;
                     },
                     (error) => {
-                        Debug.LogError($"Standing image generation failed: {error}");
+                        Debug.LogError($"Standing image generation failed for {key}: {error}");
                         completed = true;
                     }
                 );
@@ -116,15 +123,22 @@ Resolution: 2048×4096.";
                     );
 
                     character.standingSprites[key] = sprite;
+                    Debug.Log($"[{currentIndex}/{expressions.Length}] Successfully created sprite for {key}");
 
 #if UNITY_EDITOR
                     SaveSpriteToResources(character.characterName, key, result);
 #endif
                 }
+                else
+                {
+                    Debug.LogWarning($"[{currentIndex}/{expressions.Length}] Failed to generate {key} - result is null");
+                }
 
+                Debug.Log($"[{currentIndex}/{expressions.Length}] Waiting 1 second before next generation...");
                 yield return new WaitForSeconds(1f); // API 레이트 리밋 대비
             }
 
+            Debug.Log($"=== Completed all {expressions.Length} standing sprites for {character.characterName} ===");
             onComplete?.Invoke();
         }
 
