@@ -6,13 +6,13 @@ using UnityEngine.Networking;
 namespace IyagiAI.AISystem
 {
     /// <summary>
-    /// Gemini Image (Imagen 3) API 클라이언트
+    /// Gemini 2.5 Flash Image API 클라이언트
     /// 캐릭터 스탠딩, 배경, CG 생성 담당
     /// </summary>
     public class NanoBananaClient : MonoBehaviour
     {
         private string apiKey;
-        private const string API_URL_GENERATE = "https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict";
+        private const string API_URL_GENERATE = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent";
 
         /// <summary>
         /// API 키 초기화
