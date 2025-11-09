@@ -1,7 +1,9 @@
-# Iyagi_VN_Toolkit
+# Iyagi AI VN Generator
 
-> Create your own **visual novel** with **Google Sheets**.
-> *Iyagi (이야기, meaning story in Korean)* is a lightweight Unity toolkit for building narrative experiences through data-driven design.
+> Create your own **visual novel** with **AI-powered automation**.
+> *Iyagi (이야기, meaning story in Korean)* is an AI-powered Unity toolkit that generates complete visual novels from simple prompts.
+
+**⚠️ This project is a complete rewrite of Iyagi_VN_Toolkit, replacing CSV-based workflows with AI generation.**
 
 
 ## Overview

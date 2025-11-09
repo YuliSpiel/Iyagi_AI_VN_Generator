@@ -85,6 +85,10 @@ crashlytics-build.properties
 # 크래시 리포트 파일
 mono_crash.*.json
 
-# LLM API 설정 파일 (API 키 포함)
+# API 키 설정 파일 (API 키 포함 - Git에 커밋 금지)
+Assets/Resources/APIConfig.asset
+Assets/Resources/APIConfig.asset.meta
+
+# 구 버전 호환용 (삭제 예정)
 Assets/Resources/LLMConfig.asset
 Assets/Resources/LLMConfig.asset.meta
