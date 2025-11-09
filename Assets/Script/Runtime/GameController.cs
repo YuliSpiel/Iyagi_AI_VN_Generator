@@ -86,7 +86,7 @@ namespace IyagiAI.Runtime
             // Core Values 초기화
             foreach (var value in projectData.coreValues)
             {
-                currentState.coreValueScores[value] = 0;
+                currentState.coreValueScores[value.name] = 0;
             }
 
             // 캐릭터 호감도 초기화
@@ -208,11 +208,11 @@ namespace IyagiAI.Runtime
             // Value Impact 처리
             foreach (var value in projectData.coreValues)
             {
-                string impactKey = $"Choice{choiceIndex + 1}_ValueImpact_{value}";
+                string impactKey = $"Choice{choiceIndex + 1}_ValueImpact_{value.name}";
                 if (currentLine.Has(impactKey) && currentLine.TryGetInt(impactKey, out int change))
                 {
-                    currentState.coreValueScores[value] += change;
-                    Debug.Log($"{value} changed by {change} (now: {currentState.coreValueScores[value]})");
+                    currentState.coreValueScores[value.name] += change;
+                    Debug.Log($"{value.name} changed by {change} (now: {currentState.coreValueScores[value.name]})");
                 }
             }
 
