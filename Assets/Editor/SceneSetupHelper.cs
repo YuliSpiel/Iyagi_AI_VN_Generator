@@ -12,16 +12,41 @@ using IyagiAI.AISystem;
 /// </summary>
 public class SceneSetupHelper : EditorWindow
 {
+        // NotoSansKR 폰트 경로
+        private static TMP_FontAsset notoSansKR;
+
         [MenuItem("Iyagi/Setup GameScene")]
         public static void SetupGameScene()
         {
+            LoadFont();
             SetupGameSceneInternal();
         }
 
         [MenuItem("Iyagi/Setup SetupWizardScene")]
         public static void SetupWizardScene()
         {
+            LoadFont();
             SetupWizardSceneInternal();
+        }
+
+        /// <summary>
+        /// NotoSansKR 폰트 로드
+        /// </summary>
+        static void LoadFont()
+        {
+            if (notoSansKR == null)
+            {
+                notoSansKR = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Fonts/NotoSansKR.asset");
+
+                if (notoSansKR == null)
+                {
+                    Debug.LogWarning("NotoSansKR.asset not found at 'Assets/TextMesh Pro/Fonts/NotoSansKR.asset'");
+                }
+                else
+                {
+                    Debug.Log("NotoSansKR font loaded successfully!");
+                }
+            }
         }
 
         static void SetupGameSceneInternal()
@@ -206,6 +231,12 @@ public class SceneSetupHelper : EditorWindow
             text.alignment = TextAlignmentOptions.Center;
             text.fontSize = 24;
 
+            // NotoSansKR 폰트 배정
+            if (notoSansKR != null)
+            {
+                text.font = notoSansKR;
+            }
+
             RectTransform textRect = textObj.GetComponent<RectTransform>();
             textRect.anchorMin = Vector2.zero;
             textRect.anchorMax = Vector2.one;
@@ -222,6 +253,13 @@ public class SceneSetupHelper : EditorWindow
             TMP_Text text = textObj.AddComponent<TextMeshProUGUI>();
             text.color = Color.white;
             text.alignment = TextAlignmentOptions.TopLeft;
+
+            // NotoSansKR 폰트 배정
+            if (notoSansKR != null)
+            {
+                text.font = notoSansKR;
+            }
+
             return textObj;
         }
 
