@@ -4179,5 +4179,146 @@ Assets/Resources/LLMConfig.asset.meta
 
 ---
 
-**Last Updated**: 2025-01-09
-**Document Version**: 2.0 (Full Rewrite)
+## 🛠️ Development Tools & Automation
+
+### Test Automation System
+
+#### F5 Auto-Fill (SetupWizardAutoFill)
+**위치**: `Assets/Script/SetupWizard/SetupWizardAutoFill.cs`
+
+**기능**:
+- Setup Wizard의 각 단계를 F5 키로 자동 완성
+- API 호출 없이 stub 그라데이션 이미지 생성
+- 테스트 모드 자동 감지로 스탠딩 스프라이트 생성 스킵
+- ~30초 테스트 사이클 (API 비용 0원)
+
+**설정 방법**:
+```
+Unity Editor > Iyagi > Setup AutoFill Component
+```
+
+**사용법**:
+1. SetupWizardScene에서 Play 모드 진입
+2. 각 단계에서 F5 키를 누르면 자동 완성
+3. 테스트 데이터로 프로젝트 생성 완료
+
+**자동 완성 내용**:
+
+| Step | 자동 완성 내용 |
+|------|--------------|
+| **Step 1** | 제목: "테스트 프로젝트 HHmmss"<br>줄거리: 판타지 모험 이야기<br>장르: Fantasy, 톤: Lighthearted, 플레이타임: 1시간 |
+| **Step 2** | 핵심 가치 3개: 용기(검술/방어/돌격), 지혜(마법/분석/전략), 우정(협동/설득/치유) |
+| **Step 3** | 챕터 수: 3개 |
+| **Step 4** | 플레이어 캐릭터: 주인공 (18세, 남성, 1인칭, 영웅)<br>stub 얼굴 이미지 생성 (그라데이션) |
+| **Step 5** | NPC: 테스트 NPC (20세, 여성, 전략가, 로맨스 가능)<br>stub 얼굴 이미지 생성 |
+| **Step 6** | 자동 완성 불필요 (Create Project 버튼 클릭) |
+
+#### GameScene Auto-Setup (GameSceneSetupHelper)
+**위치**: `Assets/Editor/GameSceneSetupHelper.cs`
+
+**기능**:
+- 버튼 하나로 완전한 GameScene 자동 생성
+- 모든 UI 요소 및 레퍼런스 자동 연결
+- NotoSansKR 폰트 자동 적용
+
+**사용법**:
+```
+Unity Editor > Iyagi > Setup Game Scene
+```
+
+**자동 생성 요소**:
+- ✅ EventSystem + StandaloneInputModule
+- ✅ Main Camera (AudioListener 포함)
+- ✅ Canvas (Screen Space Overlay, 1920x1080 기준)
+- ✅ GameController 컴포넌트
+- ✅ DialogueUI 패널:
+  - Background (전체 화면)
+  - Character Slots (Left 20%, Center 50%, Right 80%)
+  - Dialogue Box (하단 30%, 반투명)
+  - Speaker Name + Dialogue Text
+  - CG Image (CanvasGroup 포함)
+  - 버튼들: Next, Auto, Skip, Log
+  - Choice Panel (4개 선택지 버튼)
+- ✅ SaveDataManager + RuntimeSpriteManager 싱글톤
+
+**자동 연결 필드**:
+```csharp
+// DialogueUI의 모든 필드가 자동 연결됨
+- leftCharacterImage, rightCharacterImage, centerCharacterImage
+- leftCharacterGroup, rightCharacterGroup, centerCharacterGroup
+- speakerNameText, dialogueText, dialogueBox, dialogueBoxGroup
+- cgImage, cgGroup
+- backgroundImage
+- choicePanel, choiceButtons[4], choiceTexts[4]
+- nextButton, autoButton, skipButton, logButton
+```
+
+#### UI Fixes Helper (SetupWizardUIFixes)
+**위치**: `Assets/Editor/SetupWizardUIFixes.cs`
+
+**기능**:
+- Setup Wizard UI 버튼 위치 자동 수정
+- 로딩 팝업 자동 생성
+- Step5 prev/next 버튼을 Step4와 동일한 위치로 조정
+
+**사용법**:
+```
+Unity Editor > Iyagi > Fix Setup Wizard UI
+```
+
+### 완전 자동화된 워크플로우
+
+#### 1. 프로젝트 생성 테스트 (30초)
+```
+1. SetupWizardScene 오픈
+2. Play 모드
+3. Step 1~5에서 각각 F5 키 (자동 완성)
+4. Step 6에서 Create Project 버튼 클릭
+5. 프로젝트 생성 완료 (API 비용 0원)
+```
+
+#### 2. GameScene 설정 (5초)
+```
+Unity Editor > Iyagi > Setup Game Scene
+→ Assets/Scenes/GameScene.unity 생성 완료
+```
+
+#### 3. 전체 플로우 테스트
+```
+TitleScene → SetupWizard (F5 자동 완성) → GameScene (자동 생성)
+→ 런타임에서 챕터 생성 및 대화 표시
+```
+
+### 테스트 모드 vs 프로덕션 모드
+
+| 항목 | 테스트 모드 (F5 Auto-Fill) | 프로덕션 모드 |
+|------|--------------------------|--------------|
+| **얼굴 이미지** | Stub 그라데이션 (즉시) | Gemini API 생성 (10~20초) |
+| **스탠딩 스프라이트** | 생성 스킵 | 5장 자동 생성 (각 10~20초) |
+| **API 비용** | 0원 | 캐릭터당 ~$0.10 |
+| **테스트 시간** | ~30초 | ~5분 |
+| **용도** | 빠른 반복 테스트, UI/로직 검증 | 실제 프로젝트 제작 |
+
+**테스트 모드 감지 로직**:
+```csharp
+// Step4_PlayerCharacter.cs, Step5_NPCs.cs
+var autoFill = wizardManager.GetComponent<SetupWizardAutoFill>();
+bool isTestMode = autoFill != null && autoFill.enableAutoFill;
+
+if (isTestMode)
+{
+    // 스탠딩 이미지 생성 스킵
+    Debug.Log("[Test Mode] Skipping standing sprite generation");
+    nextStepButton.interactable = true;
+}
+else
+{
+    // 프로덕션: 스탠딩 5종 생성
+    StartCoroutine(GenerateStandingSprites(character));
+}
+```
+
+---
+
+**Last Updated**: 2025-01-10
+**Document Version**: 2.1 (Added Development Tools & Automation)
