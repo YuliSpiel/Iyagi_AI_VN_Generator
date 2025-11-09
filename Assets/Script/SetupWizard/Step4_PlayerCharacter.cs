@@ -62,32 +62,35 @@ namespace IyagiAI.SetupWizard
 
         void InitializeDropdowns()
         {
-            // Gender
+            // Gender (한국어)
             genderDropdown.ClearOptions();
-            var genderOptions = new System.Collections.Generic.List<string>();
-            foreach (Gender g in System.Enum.GetValues(typeof(Gender)))
+            genderDropdown.AddOptions(new System.Collections.Generic.List<string>
             {
-                genderOptions.Add(g.ToString());
-            }
-            genderDropdown.AddOptions(genderOptions);
+                "남성",
+                "여성",
+                "논바이너리"
+            });
 
-            // POV
+            // POV (한국어)
             povDropdown.ClearOptions();
-            var povOptions = new System.Collections.Generic.List<string>();
-            foreach (POV p in System.Enum.GetValues(typeof(POV)))
+            povDropdown.AddOptions(new System.Collections.Generic.List<string>
             {
-                povOptions.Add(p.ToString().Replace("Person", " Person"));
-            }
-            povDropdown.AddOptions(povOptions);
+                "1인칭",
+                "2인칭",
+                "3인칭"
+            });
 
-            // Archetype
+            // Archetype (한국어)
             archetypeDropdown.ClearOptions();
-            var archetypeOptions = new System.Collections.Generic.List<string>();
-            foreach (Archetype a in System.Enum.GetValues(typeof(Archetype)))
+            archetypeDropdown.AddOptions(new System.Collections.Generic.List<string>
             {
-                archetypeOptions.Add(a.ToString());
-            }
-            archetypeDropdown.AddOptions(archetypeOptions);
+                "영웅",
+                "전략가",
+                "순수한 자",
+                "반항아",
+                "멘토",
+                "트릭스터"
+            });
         }
 
         public void OnGenerateFaceClicked()

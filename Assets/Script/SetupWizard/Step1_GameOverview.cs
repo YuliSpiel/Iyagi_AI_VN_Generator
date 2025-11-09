@@ -47,32 +47,38 @@ namespace IyagiAI.SetupWizard
         /// </summary>
         void InitializeDropdowns()
         {
-            // Genre 드롭다운
+            // Genre 드롭다운 (한국어)
             genreDropdown.ClearOptions();
-            var genreOptions = new System.Collections.Generic.List<string>();
-            foreach (Genre g in System.Enum.GetValues(typeof(Genre)))
+            genreDropdown.AddOptions(new System.Collections.Generic.List<string>
             {
-                genreOptions.Add(g.ToString().Replace("_", " "));
-            }
-            genreDropdown.AddOptions(genreOptions);
+                "판타지",
+                "SF",
+                "미스터리",
+                "로맨스",
+                "호러",
+                "어드벤처",
+                "일상"
+            });
 
-            // Tone 드롭다운
+            // Tone 드롭다운 (한국어)
             toneDropdown.ClearOptions();
-            var toneOptions = new System.Collections.Generic.List<string>();
-            foreach (Tone t in System.Enum.GetValues(typeof(Tone)))
+            toneDropdown.AddOptions(new System.Collections.Generic.List<string>
             {
-                toneOptions.Add(t.ToString());
-            }
-            toneDropdown.AddOptions(toneOptions);
+                "밝고 경쾌함",
+                "진지함",
+                "어두움",
+                "코미디",
+                "드라마틱"
+            });
 
-            // Playtime 드롭다운
+            // Playtime 드롭다운 (한국어)
             playtimeDropdown.ClearOptions();
             playtimeDropdown.AddOptions(new System.Collections.Generic.List<string>
             {
-                "30 Minutes",
-                "1 Hour",
-                "2 Hours",
-                "3+ Hours"
+                "30분",
+                "1시간",
+                "2시간",
+                "3시간 이상"
             });
         }
 

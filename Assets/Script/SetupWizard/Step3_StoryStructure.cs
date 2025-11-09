@@ -25,16 +25,16 @@ namespace IyagiAI.SetupWizard
 
         void Start()
         {
-            // 챕터 수 드롭다운 초기화
+            // 챕터 수 드롭다운 초기화 (한국어)
             chapterCountDropdown.ClearOptions();
             chapterCountDropdown.AddOptions(new System.Collections.Generic.List<string>
             {
-                "3 Chapters",
-                "4 Chapters",
-                "5 Chapters",
-                "6 Chapters"
+                "3개 챕터",
+                "4개 챕터",
+                "5개 챕터",
+                "6개 챕터"
             });
-            chapterCountDropdown.value = 1; // 기본값: 4 Chapters
+            chapterCountDropdown.value = 1; // 기본값: 4개 챕터
 
             // 버튼 이벤트
             nextStepButton.onClick.AddListener(OnNextStepClicked);
