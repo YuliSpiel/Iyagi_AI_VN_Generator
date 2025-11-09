@@ -4,6 +4,7 @@ using UnityEditor;
 using TMPro;
 using IyagiAI.Runtime;
 using IyagiAI.SetupWizard;
+using IyagiAI.AISystem;
 
 /// <summary>
 /// Scene 자동 구성 Helper
@@ -311,7 +312,7 @@ public class SceneSetupHelper : EditorWindow
             SetupStep6(stepPanels[5], wizardManager);
 
             // WizardManager 연결
-            wizardManager.steps = stepPanels;
+            wizardManager.stepPanels = stepPanels;
 
             Debug.Log("SetupWizardScene setup complete!");
             EditorUtility.SetDirty(canvas.gameObject);
@@ -329,7 +330,7 @@ public class SceneSetupHelper : EditorWindow
             SetPosition(title.GetComponent<RectTransform>(), 0.1f, 0.85f, 0.9f, 0.95f);
 
             // Input Fields
-            step1.gameTitleInput = CreateInputField("GameTitleInput", panel.transform, "Game Title", 0.1f, 0.75f, 0.9f, 0.82f);
+            step1.titleInput = CreateInputField("GameTitleInput", panel.transform, "Game Title", 0.1f, 0.75f, 0.9f, 0.82f);
             step1.premiseInput = CreateInputField("PremiseInput", panel.transform, "Game Premise", 0.1f, 0.55f, 0.9f, 0.72f);
 
             // Dropdowns
@@ -580,9 +581,99 @@ public class SceneSetupHelper : EditorWindow
 
             TMP_Dropdown dropdown = dropdownObj.AddComponent<TMP_Dropdown>();
 
+            // Label
             GameObject label = CreateTextMeshPro("Label", dropdownObj.transform);
             dropdown.captionText = label.GetComponent<TMP_Text>();
             SetPosition(label.GetComponent<RectTransform>(), 0.1f, 0f, 0.9f, 1f);
+
+            // Arrow
+            GameObject arrow = CreateUIObject("Arrow", dropdownObj.transform);
+            Image arrowImg = arrow.AddComponent<Image>();
+            arrowImg.color = Color.white;
+            RectTransform arrowRect = arrow.GetComponent<RectTransform>();
+            arrowRect.anchorMin = new Vector2(1f, 0.5f);
+            arrowRect.anchorMax = new Vector2(1f, 0.5f);
+            arrowRect.sizeDelta = new Vector2(20, 20);
+            arrowRect.anchoredPosition = new Vector2(-15, 0);
+
+            // Template
+            GameObject template = CreateUIObject("Template", dropdownObj.transform);
+            template.SetActive(false);
+            Image templateBg = template.AddComponent<Image>();
+            templateBg.color = new Color(0.25f, 0.25f, 0.25f);
+            RectTransform templateRect = template.GetComponent<RectTransform>();
+            templateRect.anchorMin = new Vector2(0, 0);
+            templateRect.anchorMax = new Vector2(1, 0);
+            templateRect.pivot = new Vector2(0.5f, 1f);
+            templateRect.sizeDelta = new Vector2(0, 150);
+            templateRect.anchoredPosition = new Vector2(0, 0);
+
+            // Viewport
+            GameObject viewport = CreateUIObject("Viewport", template.transform);
+            viewport.AddComponent<Mask>().showMaskGraphic = false;
+            Image viewportImg = viewport.AddComponent<Image>();
+            viewportImg.color = new Color(0.25f, 0.25f, 0.25f);
+            SetFullScreen(viewport.GetComponent<RectTransform>());
+
+            // Content
+            GameObject content = CreateUIObject("Content", viewport.transform);
+            RectTransform contentRect = content.GetComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0, 1);
+            contentRect.anchorMax = new Vector2(1, 1);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.sizeDelta = new Vector2(0, 28);
+
+            // Item
+            GameObject item = CreateUIObject("Item", content.transform);
+            Toggle itemToggle = item.AddComponent<Toggle>();
+            Image itemBg = item.AddComponent<Image>();
+            itemBg.color = new Color(0.3f, 0.3f, 0.3f);
+            RectTransform itemRect = item.GetComponent<RectTransform>();
+            itemRect.anchorMin = new Vector2(0, 0.5f);
+            itemRect.anchorMax = new Vector2(1, 0.5f);
+            itemRect.sizeDelta = new Vector2(0, 20);
+
+            // Item Background
+            GameObject itemBackground = CreateUIObject("Item Background", item.transform);
+            Image itemBgImg = itemBackground.AddComponent<Image>();
+            itemBgImg.color = new Color(0.4f, 0.4f, 0.4f);
+            SetFullScreen(itemBackground.GetComponent<RectTransform>());
+
+            // Item Checkmark
+            GameObject itemCheckmark = CreateUIObject("Item Checkmark", item.transform);
+            Image checkImg = itemCheckmark.AddComponent<Image>();
+            checkImg.color = Color.white;
+            RectTransform checkRect = itemCheckmark.GetComponent<RectTransform>();
+            checkRect.anchorMin = new Vector2(0, 0.5f);
+            checkRect.anchorMax = new Vector2(0, 0.5f);
+            checkRect.sizeDelta = new Vector2(20, 20);
+            checkRect.anchoredPosition = new Vector2(10, 0);
+
+            // Item Label
+            GameObject itemLabel = CreateTextMeshPro("Item Label", item.transform);
+            TMP_Text itemText = itemLabel.GetComponent<TMP_Text>();
+            itemText.alignment = TextAlignmentOptions.Left;
+            RectTransform itemLabelRect = itemLabel.GetComponent<RectTransform>();
+            itemLabelRect.anchorMin = Vector2.zero;
+            itemLabelRect.anchorMax = Vector2.one;
+            itemLabelRect.offsetMin = new Vector2(20, 1);
+            itemLabelRect.offsetMax = new Vector2(-5, -2);
+
+            itemToggle.targetGraphic = itemBgImg;
+            itemToggle.graphic = checkImg;
+            itemToggle.isOn = true;
+
+            // ScrollRect
+            ScrollRect scrollRect = template.AddComponent<ScrollRect>();
+            scrollRect.content = contentRect;
+            scrollRect.viewport = viewport.GetComponent<RectTransform>();
+            scrollRect.horizontal = false;
+            scrollRect.vertical = true;
+
+            // Set dropdown properties
+            dropdown.template = template.GetComponent<RectTransform>();
+            dropdown.captionText = label.GetComponent<TMP_Text>();
+            dropdown.itemText = itemText;
 
             SetPosition(dropdownObj.GetComponent<RectTransform>(), xMin, yMin, xMax, yMax);
             return dropdown;

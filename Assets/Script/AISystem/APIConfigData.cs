@@ -11,12 +11,8 @@ namespace IyagiAI.AISystem
     public class APIConfigData : ScriptableObject
     {
         [Header("Gemini API")]
-        [Tooltip("Google AI Studio에서 발급받은 Gemini API 키")]
+        [Tooltip("Google AI Studio에서 발급받은 Gemini API 키 (텍스트 및 이미지 생성에 모두 사용)")]
         public string geminiApiKey;
-
-        [Header("NanoBanana API")]
-        [Tooltip("NanoBanana 또는 대체 이미지 생성 API 키")]
-        public string nanoBananaApiKey;
 
         [Header("ElevenLabs API (Optional)")]
         [Tooltip("ElevenLabs 오디오 생성 API 키 (선택사항)")]
@@ -30,12 +26,6 @@ namespace IyagiAI.AISystem
             if (string.IsNullOrEmpty(geminiApiKey))
             {
                 Debug.LogError("Gemini API key is missing!");
-                return false;
-            }
-
-            if (string.IsNullOrEmpty(nanoBananaApiKey))
-            {
-                Debug.LogError("NanoBanana API key is missing!");
                 return false;
             }
 

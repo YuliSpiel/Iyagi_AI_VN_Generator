@@ -50,7 +50,7 @@ namespace IyagiAI.SetupWizard
             geminiClient.Initialize(config.geminiApiKey);
 
             nanoBananaClient = gameObject.AddComponent<NanoBananaClient>();
-            nanoBananaClient.Initialize(config.nanoBananaApiKey);
+            nanoBananaClient.Initialize(config.geminiApiKey); // Gemini API로 이미지도 생성
 
             // 첫 번째 스텝 표시
             ShowStep(0);

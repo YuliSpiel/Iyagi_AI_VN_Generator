@@ -51,7 +51,7 @@ namespace IyagiAI.Runtime
             chapterManager.geminiClient = geminiClient;
 
             var nanoBananaClient = gameObject.AddComponent<NanoBananaClient>();
-            nanoBananaClient.Initialize(config.nanoBananaApiKey);
+            nanoBananaClient.Initialize(config.geminiApiKey); // Gemini API로 이미지도 생성
             chapterManager.nanoBananaClient = nanoBananaClient;
 
             // RuntimeSpriteManager 초기화
