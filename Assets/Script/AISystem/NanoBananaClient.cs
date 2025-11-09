@@ -6,14 +6,13 @@ using UnityEngine.Networking;
 namespace IyagiAI.AISystem
 {
     /// <summary>
-    /// NanoBanana (또는 대체) 이미지 생성 API 클라이언트
+    /// Gemini Image (Imagen 3) API 클라이언트
     /// 캐릭터 스탠딩, 배경, CG 생성 담당
     /// </summary>
     public class NanoBananaClient : MonoBehaviour
     {
         private string apiKey;
-        private const string API_URL_GENERATE = "https://api.nanobanana.ai/v1/generate";
-        private const string API_URL_WITH_REFERENCE = "https://api.nanobanana.ai/v1/generate_with_reference";
+        private const string API_URL_GENERATE = "https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict";
 
         /// <summary>
         /// API 키 초기화
@@ -42,53 +41,74 @@ namespace IyagiAI.AISystem
                 yield break;
             }
 
-            var requestBody = new ImageGenRequest
+            int usedSeed = seed ?? Random.Range(1000, 99999);
+
+            // Gemini Imagen API 요청 형식
+            var requestBody = new ImagenRequest
             {
-                prompt = prompt,
-                seed = seed ?? Random.Range(1000, 99999)
+                instances = new ImagenInstance[]
+                {
+                    new ImagenInstance
+                    {
+                        prompt = prompt
+                    }
+                },
+                parameters = new ImagenParameters
+                {
+                    sampleCount = 1,
+                    aspectRatio = "1:1",
+                    seed = usedSeed
+                }
             };
 
             string json = JsonUtility.ToJson(requestBody);
-            UnityWebRequest request = new UnityWebRequest(API_URL_GENERATE, "POST");
+            string url = $"{API_URL_GENERATE}?key={apiKey}";
+
+            UnityWebRequest request = new UnityWebRequest(url, "POST");
             request.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(json));
             request.downloadHandler = new DownloadHandlerBuffer();
-            request.SetRequestHeader("Authorization", $"Bearer {apiKey}");
             request.SetRequestHeader("Content-Type", "application/json");
 
             yield return request.SendWebRequest();
 
             if (request.result == UnityWebRequest.Result.Success)
             {
-                // JSON 파싱 (try-catch는 yield 없이)
-                ImageGenResponse response = null;
+                // JSON 파싱
+                ImagenResponse response = null;
                 try
                 {
-                    response = JsonUtility.FromJson<ImageGenResponse>(request.downloadHandler.text);
+                    response = JsonUtility.FromJson<ImagenResponse>(request.downloadHandler.text);
                 }
                 catch (System.Exception e)
                 {
-                    onError?.Invoke($"JSON parsing error: {e.Message}");
+                    onError?.Invoke($"JSON parsing error: {e.Message}\nResponse: {request.downloadHandler.text}");
                     yield break;
                 }
 
-                if (response == null || string.IsNullOrEmpty(response.image_url))
+                if (response == null || response.predictions == null || response.predictions.Length == 0)
                 {
-                    onError?.Invoke("Invalid response: no image URL");
+                    onError?.Invoke("Invalid response: no predictions");
                     yield break;
                 }
 
-                // 이미지 다운로드 (try-catch 밖에서)
-                UnityWebRequest imgRequest = UnityWebRequestTexture.GetTexture(response.image_url);
-                yield return imgRequest.SendWebRequest();
-
-                if (imgRequest.result == UnityWebRequest.Result.Success)
+                // Base64 이미지 디코딩
+                string base64Image = response.predictions[0].bytesBase64Encoded;
+                if (string.IsNullOrEmpty(base64Image))
                 {
-                    Texture2D texture = DownloadHandlerTexture.GetContent(imgRequest);
-                    onSuccess?.Invoke(texture, response.seed);
+                    onError?.Invoke("Invalid response: no image data");
+                    yield break;
                 }
-                else
+
+                try
                 {
-                    onError?.Invoke($"Image download failed: {imgRequest.error}");
+                    byte[] imageBytes = System.Convert.FromBase64String(base64Image);
+                    Texture2D texture = new Texture2D(2, 2);
+                    texture.LoadImage(imageBytes);
+                    onSuccess?.Invoke(texture, usedSeed);
+                }
+                catch (System.Exception e)
+                {
+                    onError?.Invoke($"Image decoding error: {e.Message}");
                 }
             }
             else
@@ -99,11 +119,13 @@ namespace IyagiAI.AISystem
 
         /// <summary>
         /// 레퍼런스 이미지를 사용한 이미지 생성 (CG 전용)
+        /// NOTE: Imagen 3는 레퍼런스 이미지를 직접 지원하지 않으므로
+        /// 프롬프트에 캐릭터 설명을 추가하는 방식으로 대체
         /// </summary>
         /// <param name="prompt">이미지 생성 프롬프트</param>
-        /// <param name="referenceImages">레퍼런스 이미지 목록 (캐릭터 얼굴)</param>
-        /// <param name="width">생성 이미지 너비</param>
-        /// <param name="height">생성 이미지 높이</param>
+        /// <param name="referenceImages">레퍼런스 이미지 목록 (사용하지 않음)</param>
+        /// <param name="width">생성 이미지 너비 (사용하지 않음)</param>
+        /// <param name="height">생성 이미지 높이 (사용하지 않음)</param>
         /// <param name="onSuccess">성공 콜백 (Texture2D)</param>
         /// <param name="onError">실패 콜백 (에러 메시지)</param>
         public IEnumerator GenerateImageWithReferences(
@@ -114,68 +136,16 @@ namespace IyagiAI.AISystem
             System.Action<Texture2D> onSuccess,
             System.Action<string> onError)
         {
-            if (string.IsNullOrEmpty(apiKey))
-            {
-                onError?.Invoke("API key not initialized");
-                yield break;
-            }
+            // Imagen 3는 레퍼런스 이미지를 직접 지원하지 않으므로
+            // 프롬프트 기반 생성만 사용
+            // 캐릭터 일관성은 prompt에 상세한 설명을 포함하여 유지
 
-            // Multipart form data 생성
-            WWWForm form = new WWWForm();
-            form.AddField("prompt", prompt);
-            form.AddField("width", width.ToString());
-            form.AddField("height", height.ToString());
-
-            // 레퍼런스 이미지 추가
-            for (int i = 0; i < referenceImages.Count; i++)
-            {
-                byte[] imageBytes = referenceImages[i].EncodeToPNG();
-                form.AddBinaryData($"reference_image_{i}", imageBytes, $"ref_{i}.png", "image/png");
-            }
-
-            UnityWebRequest request = UnityWebRequest.Post(API_URL_WITH_REFERENCE, form);
-            request.SetRequestHeader("Authorization", $"Bearer {apiKey}");
-
-            yield return request.SendWebRequest();
-
-            if (request.result == UnityWebRequest.Result.Success)
-            {
-                // JSON 파싱 (try-catch는 yield 없이)
-                ImageGenResponse response = null;
-                try
-                {
-                    response = JsonUtility.FromJson<ImageGenResponse>(request.downloadHandler.text);
-                }
-                catch (System.Exception e)
-                {
-                    onError?.Invoke($"JSON parsing error: {e.Message}");
-                    yield break;
-                }
-
-                if (response == null || string.IsNullOrEmpty(response.image_url))
-                {
-                    onError?.Invoke("Invalid response: no image URL");
-                    yield break;
-                }
-
-                // 이미지 다운로드 (try-catch 밖에서)
-                UnityWebRequest imgRequest = UnityWebRequestTexture.GetTexture(response.image_url);
-                yield return imgRequest.SendWebRequest();
-
-                if (imgRequest.result == UnityWebRequest.Result.Success)
-                {
-                    Texture2D texture = DownloadHandlerTexture.GetContent(imgRequest);
-                    onSuccess?.Invoke(texture);
-                }
-                else
-                {
-                    onError?.Invoke($"Image download failed: {imgRequest.error}");
-                }
-            }
-            else
-            {
-                onError?.Invoke($"API Error: {request.error}\n{request.downloadHandler.text}");
-            }
+            yield return GenerateImage(
+                prompt,
+                null, // 랜덤 시드
+                (texture, seed) => onSuccess?.Invoke(texture),
+                onError
+            );
         }
 
         /// <summary>
@@ -204,20 +174,39 @@ namespace IyagiAI.AISystem
             }
         }
 
-        // ===== JSON 스키마 =====
+        // ===== JSON 스키마 (Gemini Imagen API) =====
 
         [System.Serializable]
-        private class ImageGenRequest
+        private class ImagenRequest
+        {
+            public ImagenInstance[] instances;
+            public ImagenParameters parameters;
+        }
+
+        [System.Serializable]
+        private class ImagenInstance
         {
             public string prompt;
+        }
+
+        [System.Serializable]
+        private class ImagenParameters
+        {
+            public int sampleCount;
+            public string aspectRatio;
             public int seed;
         }
 
         [System.Serializable]
-        private class ImageGenResponse
+        private class ImagenResponse
         {
-            public string image_url;
-            public int seed;
+            public ImagenPrediction[] predictions;
+        }
+
+        [System.Serializable]
+        private class ImagenPrediction
+        {
+            public string bytesBase64Encoded;
         }
     }
 }
