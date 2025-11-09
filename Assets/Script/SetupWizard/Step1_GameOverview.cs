@@ -91,10 +91,20 @@ namespace IyagiAI.SetupWizard
                            !string.IsNullOrEmpty(premiseInput.text);
 
             nextStepButton.interactable = isValid;
+
+            // 입력이 있으면 Auto-Fill 버튼 텍스트 변경
+            if (autoFillButton != null)
+            {
+                var btnText = autoFillButton.GetComponentInChildren<TMP_Text>();
+                if (btnText != null)
+                {
+                    btnText.text = isValid ? "AI 풍부화" : "AI 자동 생성";
+                }
+            }
         }
 
         /// <summary>
-        /// Auto Fill 버튼 클릭 (Gemini로 자동 생성)
+        /// Auto Fill 버튼 클릭 (사용자 입력 풍부화 또는 자동 생성)
         /// </summary>
         public void OnAutoFillClicked()
         {
@@ -104,13 +114,50 @@ namespace IyagiAI.SetupWizard
 
         IEnumerator AutoFillWithAI()
         {
-            string prompt = @"Generate a visual novel game concept. Output JSON only:
+            // 사용자 입력 확인
+            string userTitle = titleInput.text.Trim();
+            string userPremise = premiseInput.text.Trim();
+
+            string prompt;
+
+            if (string.IsNullOrEmpty(userTitle) && string.IsNullOrEmpty(userPremise))
+            {
+                // 아무것도 입력 안 했으면 완전 새로 생성
+                prompt = @"비주얼 노벨 게임 컨셉을 생성해줘. 창의적이고 매력적인 내용으로 만들어줘.
+
+JSON 형식으로만 출력:
 {
-  ""title"": ""game title (short, catchy)"",
-  ""premise"": ""brief story premise (2-3 sentences)"",
-  ""genre"": ""Fantasy/SciFi/Mystery/Romance/Horror/Adventure/Slice_of_Life"",
-  ""tone"": ""Lighthearted/Serious/Dark/Comedic/Dramatic""
+  ""title"": ""게임 제목 (짧고 임팩트 있게)"",
+  ""premise"": ""스토리 줄거리 (2-3문장, 흥미롭게)"",
+  ""genre"": ""Fantasy/SciFi/Mystery/Romance/Horror/Adventure/Slice_of_Life 중 하나"",
+  ""tone"": ""Lighthearted/Serious/Dark/Comedic/Dramatic 중 하나""
 }";
+            }
+            else
+            {
+                // 입력이 있으면 풍부화
+                prompt = $@"사용자가 비주얼 노벨 게임 아이디어를 개떡같이 입력했어. 이걸 찰떡같이 이해하고 풍부하게 발전시켜줘.
+
+사용자 입력:
+제목: {(string.IsNullOrEmpty(userTitle) ? "(없음)" : userTitle)}
+줄거리: {(string.IsNullOrEmpty(userPremise) ? "(없음)" : userPremise)}
+
+요구사항:
+1. 사용자 의도를 정확히 파악하고 핵심은 유지
+2. 제목은 더 매력적이고 기억에 남게 다듬기 (단, 원래 의도는 살릴 것)
+3. 줄거리는 2-3문장으로 풍부하고 구체적으로 확장
+4. 입력 내용을 기반으로 적절한 장르와 톤 추천
+5. 오타, 맞춤법 수정
+6. 애매한 표현은 명확하게
+
+JSON 형식으로만 출력:
+{{
+  ""title"": ""다듬어진 제목"",
+  ""premise"": ""풍부해진 줄거리 (2-3문장)"",
+  ""genre"": ""Fantasy/SciFi/Mystery/Romance/Horror/Adventure/Slice_of_Life 중 하나"",
+  ""tone"": ""Lighthearted/Serious/Dark/Comedic/Dramatic 중 하나""
+}}";
+            }
 
             bool completed = false;
             string result = null;

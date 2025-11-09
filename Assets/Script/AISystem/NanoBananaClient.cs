@@ -43,21 +43,22 @@ namespace IyagiAI.AISystem
 
             int usedSeed = seed ?? Random.Range(1000, 99999);
 
-            // Gemini Imagen API 요청 형식
-            var requestBody = new ImagenRequest
+            // Gemini 2.5 Flash Image API 요청 형식
+            var requestBody = new GeminiImageRequest
             {
-                instances = new ImagenInstance[]
+                contents = new GeminiImageContent[]
                 {
-                    new ImagenInstance
+                    new GeminiImageContent
                     {
-                        prompt = prompt
+                        parts = new GeminiImageRequestPart[]
+                        {
+                            new GeminiImageRequestPart { text = prompt }
+                        }
                     }
                 },
-                parameters = new ImagenParameters
+                generationConfig = new ImageGenerationConfig
                 {
-                    sampleCount = 1,
-                    aspectRatio = "1:1",
-                    seed = usedSeed
+                    responseMimeType = "image/png"
                 }
             };
 
@@ -74,10 +75,10 @@ namespace IyagiAI.AISystem
             if (request.result == UnityWebRequest.Result.Success)
             {
                 // JSON 파싱
-                ImagenResponse response = null;
+                GeminiImageResponse response = null;
                 try
                 {
-                    response = JsonUtility.FromJson<ImagenResponse>(request.downloadHandler.text);
+                    response = JsonUtility.FromJson<GeminiImageResponse>(request.downloadHandler.text);
                 }
                 catch (System.Exception e)
                 {
@@ -85,23 +86,31 @@ namespace IyagiAI.AISystem
                     yield break;
                 }
 
-                if (response == null || response.predictions == null || response.predictions.Length == 0)
+                if (response == null || response.candidates == null || response.candidates.Length == 0)
                 {
-                    onError?.Invoke("Invalid response: no predictions");
+                    onError?.Invoke("Invalid response: no candidates");
+                    yield break;
+                }
+
+                // 첫 번째 candidate의 parts에서 inline_data 추출
+                var candidate = response.candidates[0];
+                if (candidate.content == null || candidate.content.parts == null || candidate.content.parts.Length == 0)
+                {
+                    onError?.Invoke("Invalid response: no content parts");
+                    yield break;
+                }
+
+                var part = candidate.content.parts[0];
+                if (part.inline_data == null || string.IsNullOrEmpty(part.inline_data.data))
+                {
+                    onError?.Invoke("Invalid response: no inline_data");
                     yield break;
                 }
 
                 // Base64 이미지 디코딩
-                string base64Image = response.predictions[0].bytesBase64Encoded;
-                if (string.IsNullOrEmpty(base64Image))
-                {
-                    onError?.Invoke("Invalid response: no image data");
-                    yield break;
-                }
-
                 try
                 {
-                    byte[] imageBytes = System.Convert.FromBase64String(base64Image);
+                    byte[] imageBytes = System.Convert.FromBase64String(part.inline_data.data);
                     Texture2D texture = new Texture2D(2, 2);
                     texture.LoadImage(imageBytes);
                     onSuccess?.Invoke(texture, usedSeed);
@@ -174,39 +183,65 @@ namespace IyagiAI.AISystem
             }
         }
 
-        // ===== JSON 스키마 (Gemini Imagen API) =====
+        // ===== JSON 스키마 (Gemini 2.5 Flash Image API) =====
 
         [System.Serializable]
-        private class ImagenRequest
+        private class GeminiImageRequest
         {
-            public ImagenInstance[] instances;
-            public ImagenParameters parameters;
+            public GeminiImageContent[] contents;
+            public ImageGenerationConfig generationConfig;
         }
 
         [System.Serializable]
-        private class ImagenInstance
+        private class GeminiImageContent
         {
-            public string prompt;
+            public GeminiImageRequestPart[] parts;
+        }
+
+        // 요청용 Part (text만 포함)
+        [System.Serializable]
+        private class GeminiImageRequestPart
+        {
+            public string text;
+        }
+
+        // 응답용 Part (inline_data 포함 가능)
+        [System.Serializable]
+        private class GeminiImageResponsePart
+        {
+            public string text;
+            public InlineData inline_data;
         }
 
         [System.Serializable]
-        private class ImagenParameters
+        private class InlineData
         {
-            public int sampleCount;
-            public string aspectRatio;
-            public int seed;
+            public string mime_type;
+            public string data; // Base64 encoded
         }
 
         [System.Serializable]
-        private class ImagenResponse
+        private class ImageGenerationConfig
         {
-            public ImagenPrediction[] predictions;
+            public string responseMimeType;
         }
 
         [System.Serializable]
-        private class ImagenPrediction
+        private class GeminiImageResponse
         {
-            public string bytesBase64Encoded;
+            public GeminiImageCandidate[] candidates;
+        }
+
+        [System.Serializable]
+        private class GeminiImageCandidate
+        {
+            public GeminiImageResponseContent content;
+        }
+
+        [System.Serializable]
+        private class GeminiImageResponseContent
+        {
+            public GeminiImageResponsePart[] parts;
         }
     }
 }

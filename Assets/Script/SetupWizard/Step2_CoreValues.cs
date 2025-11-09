@@ -1,14 +1,16 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using IyagiAI.Runtime;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace IyagiAI.SetupWizard
 {
     /// <summary>
     /// Setup Wizard - Step 2: Core Values 설정
-    /// 게임의 핵심 가치들 정의 (예: Courage, Wisdom, Compassion)
+    /// Core Value와 파생 스탯 관리
     /// </summary>
     public class Step2_CoreValues : MonoBehaviour
     {
@@ -16,10 +18,14 @@ namespace IyagiAI.SetupWizard
         public SetupWizardManager wizardManager;
 
         [Header("UI Elements")]
-        public TMP_InputField value1Input;
-        public TMP_InputField value2Input;
-        public TMP_InputField value3Input;
-        public TMP_InputField value4Input; // 선택적
+        public TMP_InputField value1NameInput;
+        public TMP_InputField value1SkillsInput; // 쉼표로 구분
+        public TMP_InputField value2NameInput;
+        public TMP_InputField value2SkillsInput;
+        public TMP_InputField value3NameInput;
+        public TMP_InputField value3SkillsInput;
+        public TMP_InputField value4NameInput; // 선택적
+        public TMP_InputField value4SkillsInput;
 
         [Header("Buttons")]
         public Button autoSuggestButton;
@@ -32,19 +38,18 @@ namespace IyagiAI.SetupWizard
             nextStepButton.onClick.AddListener(OnNextStepClicked);
 
             // 입력 검증
-            value1Input.onValueChanged.AddListener((_) => ValidateInputs());
-            value2Input.onValueChanged.AddListener((_) => ValidateInputs());
-            value3Input.onValueChanged.AddListener((_) => ValidateInputs());
+            value1NameInput.onValueChanged.AddListener((_) => ValidateInputs());
+            value2NameInput.onValueChanged.AddListener((_) => ValidateInputs());
+            value3NameInput.onValueChanged.AddListener((_) => ValidateInputs());
 
             ValidateInputs();
         }
 
         void ValidateInputs()
         {
-            // 최소 3개의 Core Value 필요
-            bool isValid = !string.IsNullOrEmpty(value1Input.text) &&
-                           !string.IsNullOrEmpty(value2Input.text) &&
-                           !string.IsNullOrEmpty(value3Input.text);
+            // 최소 2개의 Core Value 필요 (이름만 확인)
+            bool isValid = !string.IsNullOrEmpty(value1NameInput.text) &&
+                           !string.IsNullOrEmpty(value2NameInput.text);
 
             nextStepButton.interactable = isValid;
         }
@@ -57,18 +62,34 @@ namespace IyagiAI.SetupWizard
 
         IEnumerator AutoSuggestValues()
         {
-            string prompt = $@"Based on this visual novel concept:
-Title: {wizardManager.projectData.gameTitle}
-Premise: {wizardManager.projectData.gamePremise}
-Genre: {wizardManager.projectData.genre}
+            string prompt = $@"비주얼 노벨 게임을 위한 Core Value와 파생 스탯을 추천해줘.
 
-Suggest 3-4 core values that players can develop through their choices.
-Output JSON only:
+게임 정보:
+제목: {wizardManager.projectData.gameTitle}
+줄거리: {wizardManager.projectData.gamePremise}
+장르: {wizardManager.projectData.genre}
+톤: {wizardManager.projectData.tone}
+
+요구사항:
+- 2~4개의 Core Value 추천
+- 각 Core Value마다 2~4개의 파생 스탯(derived skills) 추천
+- 한국어로 출력
+- Core Value는 게임의 핵심 가치 (예: 정의, 출세, 우정)
+- 파생 스탯은 구체적인 능력 (예: 자긍심, 공감능력, 판단력)
+
+JSON 형식으로만 출력:
 {{
-  ""values"": [""Value1"", ""Value2"", ""Value3"", ""Value4 (optional)""]
-}}
-
-Examples: Courage, Wisdom, Compassion, Justice, Creativity, Ambition, etc.";
+  ""coreValues"": [
+    {{
+      ""name"": ""정의"",
+      ""derivedSkills"": [""자긍심"", ""공감능력"", ""판단력""]
+    }},
+    {{
+      ""name"": ""출세"",
+      ""derivedSkills"": [""야망"", ""사교성"", ""카리스마""]
+    }}
+  ]
+}}";
 
             bool completed = false;
             string result = null;
@@ -109,14 +130,37 @@ Examples: Courage, Wisdom, Compassion, Justice, Creativity, Ambition, etc.";
                 }
 
                 string json = jsonResponse.Substring(startIndex, endIndex - startIndex + 1);
-                var data = JsonUtility.FromJson<CoreValuesData>(json);
+                var data = JsonUtility.FromJson<CoreValuesSuggestion>(json);
 
-                if (data.values != null && data.values.Length > 0)
+                if (data.coreValues != null && data.coreValues.Length > 0)
                 {
-                    value1Input.text = data.values.Length > 0 ? data.values[0] : "";
-                    value2Input.text = data.values.Length > 1 ? data.values[1] : "";
-                    value3Input.text = data.values.Length > 2 ? data.values[2] : "";
-                    value4Input.text = data.values.Length > 3 ? data.values[3] : "";
+                    // Value 1
+                    if (data.coreValues.Length > 0)
+                    {
+                        value1NameInput.text = data.coreValues[0].name;
+                        value1SkillsInput.text = string.Join(", ", data.coreValues[0].derivedSkills);
+                    }
+
+                    // Value 2
+                    if (data.coreValues.Length > 1)
+                    {
+                        value2NameInput.text = data.coreValues[1].name;
+                        value2SkillsInput.text = string.Join(", ", data.coreValues[1].derivedSkills);
+                    }
+
+                    // Value 3
+                    if (data.coreValues.Length > 2)
+                    {
+                        value3NameInput.text = data.coreValues[2].name;
+                        value3SkillsInput.text = string.Join(", ", data.coreValues[2].derivedSkills);
+                    }
+
+                    // Value 4 (optional)
+                    if (data.coreValues.Length > 3)
+                    {
+                        value4NameInput.text = data.coreValues[3].name;
+                        value4SkillsInput.text = string.Join(", ", data.coreValues[3].derivedSkills);
+                    }
                 }
 
                 ValidateInputs();
@@ -132,25 +176,77 @@ Examples: Courage, Wisdom, Compassion, Justice, Creativity, Ambition, etc.";
             // Core Values 저장
             wizardManager.projectData.coreValues.Clear();
 
-            if (!string.IsNullOrEmpty(value1Input.text))
-                wizardManager.projectData.coreValues.Add(value1Input.text.Trim());
+            // Value 1
+            if (!string.IsNullOrEmpty(value1NameInput.text))
+            {
+                var value1 = new CoreValue
+                {
+                    name = value1NameInput.text.Trim(),
+                    derivedSkills = ParseSkills(value1SkillsInput.text)
+                };
+                wizardManager.projectData.coreValues.Add(value1);
+            }
 
-            if (!string.IsNullOrEmpty(value2Input.text))
-                wizardManager.projectData.coreValues.Add(value2Input.text.Trim());
+            // Value 2
+            if (!string.IsNullOrEmpty(value2NameInput.text))
+            {
+                var value2 = new CoreValue
+                {
+                    name = value2NameInput.text.Trim(),
+                    derivedSkills = ParseSkills(value2SkillsInput.text)
+                };
+                wizardManager.projectData.coreValues.Add(value2);
+            }
 
-            if (!string.IsNullOrEmpty(value3Input.text))
-                wizardManager.projectData.coreValues.Add(value3Input.text.Trim());
+            // Value 3
+            if (!string.IsNullOrEmpty(value3NameInput.text))
+            {
+                var value3 = new CoreValue
+                {
+                    name = value3NameInput.text.Trim(),
+                    derivedSkills = ParseSkills(value3SkillsInput.text)
+                };
+                wizardManager.projectData.coreValues.Add(value3);
+            }
 
-            if (!string.IsNullOrEmpty(value4Input.text))
-                wizardManager.projectData.coreValues.Add(value4Input.text.Trim());
+            // Value 4 (optional)
+            if (!string.IsNullOrEmpty(value4NameInput.text))
+            {
+                var value4 = new CoreValue
+                {
+                    name = value4NameInput.text.Trim(),
+                    derivedSkills = ParseSkills(value4SkillsInput.text)
+                };
+                wizardManager.projectData.coreValues.Add(value4);
+            }
 
             wizardManager.NextStep();
         }
 
-        [System.Serializable]
-        private class CoreValuesData
+        List<string> ParseSkills(string skillsText)
         {
-            public string[] values;
+            if (string.IsNullOrEmpty(skillsText))
+                return new List<string>();
+
+            return skillsText.Split(',')
+                .Select(s => s.Trim())
+                .Where(s => !string.IsNullOrEmpty(s))
+                .ToList();
+        }
+
+        // ===== JSON 스키마 =====
+
+        [System.Serializable]
+        private class CoreValuesSuggestion
+        {
+            public CoreValueSuggestion[] coreValues;
+        }
+
+        [System.Serializable]
+        private class CoreValueSuggestion
+        {
+            public string name;
+            public string[] derivedSkills;
         }
     }
 }

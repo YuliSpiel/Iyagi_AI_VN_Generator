@@ -22,7 +22,7 @@ namespace IyagiAI.Runtime
         public PlaytimeEstimate playtime;
 
         [Header("Core Values")]
-        public List<string> coreValues = new List<string>(); // 예: ["Courage", "Wisdom", "Compassion"]
+        public List<CoreValue> coreValues = new List<CoreValue>(); // Core Value + Derived Skills
 
         [Header("Story Structure")]
         public int totalChapters = 4;
@@ -47,6 +47,16 @@ namespace IyagiAI.Runtime
     public enum PlaytimeEstimate { Mins30, Hour1, Hour2, Hour3Plus }
 
     // ===== Supporting Classes =====
+
+    /// <summary>
+    /// Core Value (핵심 가치)와 파생 스탯
+    /// </summary>
+    [System.Serializable]
+    public class CoreValue
+    {
+        public string name; // 예: "정의", "출세"
+        public List<string> derivedSkills = new List<string>(); // 예: ["자긍심", "공감능력", "판단력"]
+    }
 
     /// <summary>
     /// 엔딩 조건 정의

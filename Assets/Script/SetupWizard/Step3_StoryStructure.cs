@@ -77,7 +77,7 @@ namespace IyagiAI.SetupWizard
                 // 첫 번째 Core Value가 높아야 함 (예시)
                 if (wizardManager.projectData.coreValues.Count > 0)
                 {
-                    ending1.requiredValues[wizardManager.projectData.coreValues[0]] = 50;
+                    ending1.requiredValues[wizardManager.projectData.coreValues[0].name] = 50;
                 }
 
                 wizardManager.projectData.endings.Add(ending1);
@@ -97,7 +97,7 @@ namespace IyagiAI.SetupWizard
                 // 두 번째 Core Value가 높아야 함 (예시)
                 if (wizardManager.projectData.coreValues.Count > 1)
                 {
-                    ending2.requiredValues[wizardManager.projectData.coreValues[1]] = 50;
+                    ending2.requiredValues[wizardManager.projectData.coreValues[1].name] = 50;
                 }
 
                 wizardManager.projectData.endings.Add(ending2);
@@ -117,7 +117,7 @@ namespace IyagiAI.SetupWizard
                 // 세 번째 Core Value가 높아야 함 (예시)
                 if (wizardManager.projectData.coreValues.Count > 2)
                 {
-                    ending3.requiredValues[wizardManager.projectData.coreValues[2]] = 50;
+                    ending3.requiredValues[wizardManager.projectData.coreValues[2].name] = 50;
                 }
 
                 wizardManager.projectData.endings.Add(ending3);
