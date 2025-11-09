@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1045 &1
+EditorBuildSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Scenes:
+  - enabled: 0
+    path: Assets/Scenes/KMJ/00.Home.unity
+    guid: ac25a2daa814a4cfd8b11d6dc486f750
+  - enabled: 0
+    path: Assets/Resources/Scenes/ch00.StatRoll.unity
+    guid: 5255a1bcf9ffe4c17a27524aa9b6636a
+  - enabled: 0
+    path: Assets/Resources/Scenes/NotUsed.unity
+    guid: 3319b4b972ecc48e7bf0270246b8b033
+  - enabled: 0
+    path: Assets/Scenes/KMJ/Ch01.unity
+    guid: 1c17a737ab96a4d0c859d6d4091d9bb2
+  - enabled: 0
+    path: Assets/Scenes/KMJ/BadEnding 1.unity
+    guid: 08cc6eab4af0c44a39e9bd3b50889439
+  - enabled: 0
+    path: Assets/Scenes/KMJ/BadEnding 2.unity
+    guid: 4cb77edde30654b15992e9d81f0206c1
+  - enabled: 0
+    path: Assets/Scenes/temp/Option.unity
+    guid: 256ebdde95c3841eab96ffb3a104845c
+  - enabled: 0
+    path: Assets/Scenes/Temp 2.unity
+    guid: 91b9ef746706d4dbf8c03bf6ff2b0628
+  - enabled: 0
+    path: Assets/Scenes/Temp 3.unity
+    guid: 1f5a8b69304584a6e8afdd904ecad0de
+  - enabled: 1
+    path: Assets/Scenes/01_TitleScene.unity
+    guid: b840cc89d9a954483bd0182a2a58779b
+  - enabled: 1
+    path: Assets/Scenes/02_GameScene.unity
+    guid: 6bd1715ab285149938c36e52277f4ef4
+  - enabled: 1
+    path: Assets/Scenes/LLMGameScene.unity
+    guid: c6db5a5c31e1e49e1ab811cecc2c5ea5
+  m_configObjects:
+    com.unity.addressableassets: {fileID: 11400000, guid: c274adb31ea2f49a09628bd2ed2d3506, type: 2}
+    com.unity.localization.settings: {fileID: 11400000, guid: 3512745cca9aa4bb095d65e29a60776c, type: 2}

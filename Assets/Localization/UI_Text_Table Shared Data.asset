@@ -1,0 +1,84 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5b11a58205ec3474ca216360e9fa74a8, type: 3}
+  m_Name: UI_Text_Table Shared Data
+  m_EditorClassIdentifier: 
+  m_TableCollectionName: UI_Text_Table
+  m_TableCollectionNameGuidString: cc71606b3caab461ca009da67535ec92
+  m_Entries:
+  - m_Id: 56315863040
+    m_Key: txt_Title
+    m_Metadata:
+      m_Items: []
+  - m_Id: 1215076229120
+    m_Key: btn_Start
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4431704743936
+    m_Key: btn_Retry
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4431713132544
+    m_Key: btn_Exit
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4431713132545
+    m_Key: btn_Setting
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4431713132546
+    m_Key: btn_Resume
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4431713132547
+    m_Key: txt_Pause
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4431713132548
+    m_Key: txt_GameOver
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4431713132549
+    m_Key: txt_Clear
+    m_Metadata:
+      m_Items: []
+  - m_Id: 4431713132550
+    m_Key: txt_HowTo
+    m_Metadata:
+      m_Items: []
+  - m_Id: 7300281524224
+    m_Key: "btn_Load\t"
+    m_Metadata:
+      m_Items: []
+  - m_Id: 7480749842432
+    m_Key: btn_AIMode
+    m_Metadata:
+      m_Items: []
+  - m_Id: 61013769876463616
+    m_Key: btn_Home
+    m_Metadata:
+      m_Items: []
+  - m_Id: 61013941767430144
+    m_Key: btn_Save
+    m_Metadata:
+      m_Items: []
+  m_Metadata:
+    m_Items: []
+  m_KeyGenerator:
+    rid: 8938936533901377584
+  references:
+    version: 2
+    RefIds:
+    - rid: 8938936533901377584
+      type: {class: DistributedUIDGenerator, ns: UnityEngine.Localization.Tables, asm: Unity.Localization}
+      data:
+        m_CustomEpoch: 1745129063554
