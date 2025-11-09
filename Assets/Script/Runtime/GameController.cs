@@ -20,6 +20,7 @@ namespace IyagiAI.Runtime
         [Header("Managers")]
         public ChapterGenerationManager chapterManager;
         public RuntimeSpriteManager spriteManager;
+        public SaveDataManager saveManager;
 
         [Header("Current State")]
         public GameStateSnapshot currentState;
@@ -58,6 +59,12 @@ namespace IyagiAI.Runtime
             {
                 spriteManager = RuntimeSpriteManager.Instance;
                 spriteManager.Initialize(projectData, nanoBananaClient);
+            }
+
+            // SaveDataManager 초기화
+            if (saveManager == null)
+            {
+                saveManager = gameObject.AddComponent<SaveDataManager>();
             }
 
             // 게임 상태 초기화
@@ -250,6 +257,9 @@ namespace IyagiAI.Runtime
         {
             Debug.Log($"Chapter {currentChapterId} completed");
 
+            // 챕터 종료 시 자동 저장
+            AutoSave();
+
             // 다음 챕터가 있으면 시작
             if (currentChapterId < projectData.totalChapters)
             {
@@ -332,10 +342,16 @@ namespace IyagiAI.Runtime
         /// <summary>
         /// 게임 저장
         /// </summary>
-        public void SaveGame(string saveName)
+        public void SaveGame(int slotIndex, string saveName = null)
         {
-            // TODO: SaveDataManager 통합
-            Debug.Log($"Game saved: {saveName}");
+            if (saveManager != null && currentState != null)
+            {
+                bool success = saveManager.SaveGame(currentState, slotIndex, saveName);
+                if (success)
+                {
+                    Debug.Log($"Game saved to slot {slotIndex}: {saveName}");
+                }
+            }
         }
 
         /// <summary>
@@ -343,8 +359,26 @@ namespace IyagiAI.Runtime
         /// </summary>
         public void LoadGame(GameStateSnapshot savedState)
         {
+            if (savedState == null)
+            {
+                Debug.LogError("Cannot load: savedState is null");
+                return;
+            }
+
             currentState = savedState;
             StartCoroutine(StartChapter(savedState.currentChapter));
+        }
+
+        /// <summary>
+        /// 자동 저장 (챕터 시작/종료 시)
+        /// </summary>
+        void AutoSave()
+        {
+            if (saveManager != null && currentState != null)
+            {
+                saveManager.AutoSave(currentState);
+                Debug.Log("Auto save completed");
+            }
         }
     }
 }
