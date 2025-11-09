@@ -33,6 +33,7 @@ namespace IyagiAI.SetupWizard
         public TMP_Text previewIndexText; // "1 / 5"
 
         [Header("Buttons")]
+        public Button autoFillButton;
         public Button confirmButton;
         public Button nextStepButton;
 
@@ -48,15 +49,21 @@ namespace IyagiAI.SetupWizard
             InitializeDropdowns();
 
             // 버튼 이벤트 연결
+            autoFillButton.onClick.AddListener(OnAutoFillClicked);
             generateFaceButton.onClick.AddListener(OnGenerateFaceClicked);
             previousButton.onClick.AddListener(OnPreviousClicked);
             nextButton.onClick.AddListener(OnNextClicked);
             confirmButton.onClick.AddListener(OnConfirmClicked);
             nextStepButton.onClick.AddListener(OnNextStepClicked);
 
+            // 입력 검증
+            nameInput.onValueChanged.AddListener((_) => ValidateInputs());
+            appearanceInput.onValueChanged.AddListener((_) => ValidateInputs());
+
             // 초기 상태
             nextStepButton.interactable = false;
             confirmButton.interactable = false;
+            ValidateInputs();
             UpdatePreviewNavigation();
         }
 
@@ -91,6 +98,178 @@ namespace IyagiAI.SetupWizard
                 "멘토",
                 "트릭스터"
             });
+        }
+
+        void ValidateInputs()
+        {
+            // 입력이 있으면 Auto-Fill 버튼 텍스트 변경
+            bool hasInput = !string.IsNullOrEmpty(nameInput.text) ||
+                           !string.IsNullOrEmpty(appearanceInput.text) ||
+                           !string.IsNullOrEmpty(personalityInput.text);
+
+            if (autoFillButton != null)
+            {
+                var btnText = autoFillButton.GetComponentInChildren<TMP_Text>();
+                if (btnText != null)
+                {
+                    btnText.text = hasInput ? "AI 풍부화" : "AI 자동 생성";
+                }
+            }
+        }
+
+        public void OnAutoFillClicked()
+        {
+            autoFillButton.interactable = false;
+            StartCoroutine(AutoFillWithAI());
+        }
+
+        IEnumerator AutoFillWithAI()
+        {
+            // 사용자 입력 확인
+            string userName = nameInput.text.Trim();
+            string userAppearance = appearanceInput.text.Trim();
+            string userPersonality = personalityInput.text.Trim();
+
+            // 게임 컨텍스트 수집
+            string coreValuesText = string.Join(", ",
+                System.Linq.Enumerable.Select(wizardManager.projectData.coreValues, v => v.name));
+
+            string prompt;
+
+            if (string.IsNullOrEmpty(userName) && string.IsNullOrEmpty(userAppearance) && string.IsNullOrEmpty(userPersonality))
+            {
+                // 완전 자동 생성
+                prompt = $@"비주얼 노벨 게임의 플레이어 캐릭터를 생성해줘.
+
+게임 정보:
+제목: {wizardManager.projectData.gameTitle}
+줄거리: {wizardManager.projectData.gamePremise}
+장르: {wizardManager.projectData.genre}
+톤: {wizardManager.projectData.tone}
+핵심 가치: {coreValuesText}
+
+요구사항:
+1. 게임의 세계관과 톤에 맞는 주인공 생성
+2. 이름은 짧고 기억하기 쉽게 (성+이름 또는 이름만)
+3. 나이는 15~25세 사이
+4. 외모는 구체적이고 상세하게 (얼굴 특징, 머리 스타일, 체형, 패션 등)
+5. 성격은 2-3가지 주요 특징으로
+6. 성별은 게임 톤에 맞게 선택
+7. 아키타입은 게임 줄거리에 맞게 선택
+
+JSON 형식으로만 출력:
+{{
+  ""name"": ""캐릭터 이름"",
+  ""age"": 18,
+  ""gender"": ""Male/Female/NonBinary 중 하나"",
+  ""appearance"": ""외모 상세 설명 (얼굴, 머리, 체형, 옷차림 등)"",
+  ""personality"": ""성격 설명"",
+  ""archetype"": ""Hero/Strategist/Innocent/Rebel/Mentor/Trickster 중 하나""
+}}";
+            }
+            else
+            {
+                // 입력 풍부화
+                prompt = $@"사용자가 비주얼 노벨 게임의 플레이어 캐릭터 아이디어를 개떡같이 입력했어. 이걸 찰떡같이 이해하고 풍부하게 발전시켜줘.
+
+게임 정보:
+제목: {wizardManager.projectData.gameTitle}
+줄거리: {wizardManager.projectData.gamePremise}
+장르: {wizardManager.projectData.genre}
+톤: {wizardManager.projectData.tone}
+핵심 가치: {coreValuesText}
+
+사용자 입력:
+이름: {(string.IsNullOrEmpty(userName) ? "(없음)" : userName)}
+외모: {(string.IsNullOrEmpty(userAppearance) ? "(없음)" : userAppearance)}
+성격: {(string.IsNullOrEmpty(userPersonality) ? "(없음)" : userPersonality)}
+
+요구사항:
+1. 사용자 의도를 정확히 파악하고 핵심은 유지
+2. 이름이 비어있거나 어색하면 게임 세계관에 맞게 개선
+3. 외모는 매우 구체적이고 상세하게 확장 (얼굴 특징, 머리 스타일, 체형, 패션 등)
+4. 성격은 2-3가지 주요 특징으로 풍부하게
+5. 나이는 게임 톤에 맞게 자동 추천
+6. 성별과 아키타입도 입력과 게임 내용에 맞게 추천
+7. 오타, 맞춤법 수정
+8. 애매한 표현은 명확하게
+
+JSON 형식으로만 출력:
+{{
+  ""name"": ""다듬어진 이름"",
+  ""age"": 18,
+  ""gender"": ""Male/Female/NonBinary 중 하나"",
+  ""appearance"": ""풍부해진 외모 설명"",
+  ""personality"": ""풍부해진 성격 설명"",
+  ""archetype"": ""Hero/Strategist/Innocent/Rebel/Mentor/Trickster 중 하나""
+}}";
+            }
+
+            bool completed = false;
+            string result = null;
+
+            yield return wizardManager.geminiClient.GenerateContent(
+                prompt,
+                (response) => {
+                    result = response;
+                    completed = true;
+                },
+                (error) => {
+                    Debug.LogError($"Auto-fill failed: {error}");
+                    completed = true;
+                }
+            );
+
+            yield return new WaitUntil(() => completed);
+
+            if (!string.IsNullOrEmpty(result))
+            {
+                ParseAutoFillResponse(result);
+            }
+
+            autoFillButton.interactable = true;
+        }
+
+        void ParseAutoFillResponse(string jsonResponse)
+        {
+            try
+            {
+                // JSON 추출
+                int startIndex = jsonResponse.IndexOf('{');
+                int endIndex = jsonResponse.LastIndexOf('}');
+
+                if (startIndex == -1 || endIndex == -1)
+                {
+                    Debug.LogError("Invalid JSON format");
+                    return;
+                }
+
+                string json = jsonResponse.Substring(startIndex, endIndex - startIndex + 1);
+                var data = JsonUtility.FromJson<CharacterAutoFillData>(json);
+
+                nameInput.text = data.name;
+                ageInput.text = data.age.ToString();
+                appearanceInput.text = data.appearance;
+                personalityInput.text = data.personality;
+
+                // Gender 설정
+                if (System.Enum.TryParse<Gender>(data.gender, out Gender g))
+                {
+                    genderDropdown.value = (int)g;
+                }
+
+                // Archetype 설정
+                if (System.Enum.TryParse<Archetype>(data.archetype, out Archetype a))
+                {
+                    archetypeDropdown.value = (int)a;
+                }
+
+                ValidateInputs();
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"Failed to parse auto-fill response: {e.Message}");
+            }
         }
 
         public void OnGenerateFaceClicked()
@@ -211,6 +390,19 @@ namespace IyagiAI.SetupWizard
         public void OnNextStepClicked()
         {
             wizardManager.NextStep();
+        }
+
+        // ===== JSON 스키마 =====
+
+        [System.Serializable]
+        private class CharacterAutoFillData
+        {
+            public string name;
+            public int age;
+            public string gender;
+            public string appearance;
+            public string personality;
+            public string archetype;
         }
     }
 }
