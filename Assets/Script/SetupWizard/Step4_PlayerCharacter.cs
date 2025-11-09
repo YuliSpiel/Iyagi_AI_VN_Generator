@@ -49,20 +49,30 @@ namespace IyagiAI.SetupWizard
             InitializeDropdowns();
 
             // 버튼 이벤트 연결
-            autoFillButton.onClick.AddListener(OnAutoFillClicked);
-            generateFaceButton.onClick.AddListener(OnGenerateFaceClicked);
-            previousButton.onClick.AddListener(OnPreviousClicked);
-            nextButton.onClick.AddListener(OnNextClicked);
-            confirmButton.onClick.AddListener(OnConfirmClicked);
-            nextStepButton.onClick.AddListener(OnNextStepClicked);
+            if (autoFillButton != null)
+                autoFillButton.onClick.AddListener(OnAutoFillClicked);
+            if (generateFaceButton != null)
+                generateFaceButton.onClick.AddListener(OnGenerateFaceClicked);
+            if (previousButton != null)
+                previousButton.onClick.AddListener(OnPreviousClicked);
+            if (nextButton != null)
+                nextButton.onClick.AddListener(OnNextClicked);
+            if (confirmButton != null)
+                confirmButton.onClick.AddListener(OnConfirmClicked);
+            if (nextStepButton != null)
+                nextStepButton.onClick.AddListener(OnNextStepClicked);
 
             // 입력 검증
-            nameInput.onValueChanged.AddListener((_) => ValidateInputs());
-            appearanceInput.onValueChanged.AddListener((_) => ValidateInputs());
+            if (nameInput != null)
+                nameInput.onValueChanged.AddListener((_) => ValidateInputs());
+            if (appearanceInput != null)
+                appearanceInput.onValueChanged.AddListener((_) => ValidateInputs());
 
             // 초기 상태
-            nextStepButton.interactable = false;
-            confirmButton.interactable = false;
+            if (nextStepButton != null)
+                nextStepButton.interactable = false;
+            if (confirmButton != null)
+                confirmButton.interactable = false;
             ValidateInputs();
             UpdatePreviewNavigation();
         }

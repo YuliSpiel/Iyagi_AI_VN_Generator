@@ -53,22 +53,34 @@ namespace IyagiAI.SetupWizard
             InitializeDropdowns();
 
             // 버튼 이벤트
-            autoFillButton.onClick.AddListener(OnAutoFillClicked);
-            generateFaceButton.onClick.AddListener(OnGenerateFaceClicked);
-            previousButton.onClick.AddListener(OnPreviousClicked);
-            nextButton.onClick.AddListener(OnNextClicked);
-            confirmButton.onClick.AddListener(OnConfirmClicked);
-            addAnotherButton.onClick.AddListener(OnAddAnotherClicked);
-            finishButton.onClick.AddListener(OnFinishClicked);
+            if (autoFillButton != null)
+                autoFillButton.onClick.AddListener(OnAutoFillClicked);
+            if (generateFaceButton != null)
+                generateFaceButton.onClick.AddListener(OnGenerateFaceClicked);
+            if (previousButton != null)
+                previousButton.onClick.AddListener(OnPreviousClicked);
+            if (nextButton != null)
+                nextButton.onClick.AddListener(OnNextClicked);
+            if (confirmButton != null)
+                confirmButton.onClick.AddListener(OnConfirmClicked);
+            if (addAnotherButton != null)
+                addAnotherButton.onClick.AddListener(OnAddAnotherClicked);
+            if (finishButton != null)
+                finishButton.onClick.AddListener(OnFinishClicked);
 
             // 입력 검증
-            nameInput.onValueChanged.AddListener((_) => ValidateInputs());
-            appearanceInput.onValueChanged.AddListener((_) => ValidateInputs());
+            if (nameInput != null)
+                nameInput.onValueChanged.AddListener((_) => ValidateInputs());
+            if (appearanceInput != null)
+                appearanceInput.onValueChanged.AddListener((_) => ValidateInputs());
 
             // 초기 상태
-            confirmButton.interactable = false;
-            addAnotherButton.interactable = false;
-            finishButton.interactable = true; // NPC는 선택적
+            if (confirmButton != null)
+                confirmButton.interactable = false;
+            if (addAnotherButton != null)
+                addAnotherButton.interactable = false;
+            if (finishButton != null)
+                finishButton.interactable = true; // NPC는 선택적
             ValidateInputs();
 
             UpdatePreviewNavigation();

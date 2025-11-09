@@ -34,13 +34,18 @@ namespace IyagiAI.SetupWizard
         void Start()
         {
             // 버튼 이벤트
-            autoSuggestButton.onClick.AddListener(OnAutoSuggestClicked);
-            nextStepButton.onClick.AddListener(OnNextStepClicked);
+            if (autoSuggestButton != null)
+                autoSuggestButton.onClick.AddListener(OnAutoSuggestClicked);
+            if (nextStepButton != null)
+                nextStepButton.onClick.AddListener(OnNextStepClicked);
 
             // 입력 검증
-            value1NameInput.onValueChanged.AddListener((_) => ValidateInputs());
-            value2NameInput.onValueChanged.AddListener((_) => ValidateInputs());
-            value3NameInput.onValueChanged.AddListener((_) => ValidateInputs());
+            if (value1NameInput != null)
+                value1NameInput.onValueChanged.AddListener((_) => ValidateInputs());
+            if (value2NameInput != null)
+                value2NameInput.onValueChanged.AddListener((_) => ValidateInputs());
+            if (value3NameInput != null)
+                value3NameInput.onValueChanged.AddListener((_) => ValidateInputs());
 
             ValidateInputs();
         }
@@ -48,10 +53,11 @@ namespace IyagiAI.SetupWizard
         void ValidateInputs()
         {
             // 최소 2개의 Core Value 필요 (이름만 확인)
-            bool isValid = !string.IsNullOrEmpty(value1NameInput.text) &&
-                           !string.IsNullOrEmpty(value2NameInput.text);
+            bool isValid = value1NameInput != null && !string.IsNullOrEmpty(value1NameInput.text) &&
+                           value2NameInput != null && !string.IsNullOrEmpty(value2NameInput.text);
 
-            nextStepButton.interactable = isValid;
+            if (nextStepButton != null)
+                nextStepButton.interactable = isValid;
         }
 
         public void OnAutoSuggestClicked()
