@@ -1,0 +1,294 @@
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using IyagiAI.AISystem;
+
+namespace IyagiAI.Runtime
+{
+    /// <summary>
+    /// 게임 전체 플로우 제어
+    /// 챕터 생성 → DialogueUI 표시 → 선택지 처리 → 상태 업데이트 → 다음 챕터
+    /// </summary>
+    public class GameController : MonoBehaviour
+    {
+        [Header("Project")]
+        public VNProjectData projectData;
+
+        [Header("Managers")]
+        public ChapterGenerationManager chapterManager;
+        public RuntimeSpriteManager spriteManager;
+
+        [Header("Current State")]
+        public GameStateSnapshot currentState;
+        public int currentChapterId = 1;
+        public List<DialogueRecord> currentChapterRecords;
+        public int currentLineIndex = 0;
+
+        void Start()
+        {
+            // API 설정 로드
+            APIConfigData config = Resources.Load<APIConfigData>("APIConfig");
+
+            if (config == null || !config.IsValid())
+            {
+                Debug.LogError("APIConfig is invalid!");
+                return;
+            }
+
+            // ChapterGenerationManager 초기화
+            if (chapterManager == null)
+            {
+                chapterManager = gameObject.AddComponent<ChapterGenerationManager>();
+            }
+            chapterManager.projectData = projectData;
+
+            var geminiClient = gameObject.AddComponent<GeminiClient>();
+            geminiClient.Initialize(config.geminiApiKey);
+            chapterManager.geminiClient = geminiClient;
+
+            var nanoBananaClient = gameObject.AddComponent<NanoBananaClient>();
+            nanoBananaClient.Initialize(config.nanoBananaApiKey);
+            chapterManager.nanoBananaClient = nanoBananaClient;
+
+            // RuntimeSpriteManager 초기화
+            if (RuntimeSpriteManager.Instance != null)
+            {
+                spriteManager = RuntimeSpriteManager.Instance;
+                spriteManager.Initialize(projectData, nanoBananaClient);
+            }
+
+            // 게임 상태 초기화
+            InitializeGameState();
+
+            // 첫 번째 챕터 시작
+            StartCoroutine(StartChapter(currentChapterId));
+        }
+
+        /// <summary>
+        /// 게임 상태 초기화
+        /// </summary>
+        void InitializeGameState()
+        {
+            currentState = new GameStateSnapshot();
+            currentState.currentChapter = 1;
+            currentState.currentLineId = 1000; // 챕터 1의 시작 ID
+
+            // Core Values 초기화
+            foreach (var value in projectData.coreValues)
+            {
+                currentState.coreValueScores[value] = 0;
+            }
+
+            // 캐릭터 호감도 초기화
+            foreach (var npc in projectData.npcs)
+            {
+                currentState.characterAffections[npc.characterName] = npc.initialAffection;
+            }
+        }
+
+        /// <summary>
+        /// 챕터 시작
+        /// </summary>
+        public IEnumerator StartChapter(int chapterId)
+        {
+            Debug.Log($"Starting Chapter {chapterId}...");
+
+            bool completed = false;
+
+            yield return chapterManager.GenerateOrLoadChapter(
+                chapterId,
+                currentState,
+                (records) => {
+                    currentChapterRecords = records;
+                    completed = true;
+                }
+            );
+
+            yield return new WaitUntil(() => completed);
+
+            if (currentChapterRecords != null && currentChapterRecords.Count > 0)
+            {
+                currentChapterId = chapterId;
+                currentLineIndex = 0;
+
+                // TODO: DialogueUI에 첫 라인 표시
+                // dialogueUI.Show(currentChapterRecords[0]);
+
+                Debug.Log($"Chapter {chapterId} loaded with {currentChapterRecords.Count} lines");
+            }
+            else
+            {
+                Debug.LogError($"Failed to load chapter {chapterId}");
+            }
+        }
+
+        /// <summary>
+        /// 다음 라인으로 진행
+        /// </summary>
+        public void NextLine()
+        {
+            if (currentChapterRecords == null || currentLineIndex >= currentChapterRecords.Count - 1)
+            {
+                // 챕터 끝
+                OnChapterEnd();
+                return;
+            }
+
+            currentLineIndex++;
+            var nextLine = currentChapterRecords[currentLineIndex];
+
+            // TODO: DialogueUI에 표시
+            // dialogueUI.Show(nextLine);
+
+            // 상태 업데이트
+            currentState.currentLineId = int.Parse(nextLine.Get("ID"));
+        }
+
+        /// <summary>
+        /// 선택지 선택 처리
+        /// </summary>
+        public void OnChoiceSelected(int choiceIndex)
+        {
+            var currentLine = currentChapterRecords[currentLineIndex];
+
+            // 선택지 텍스트
+            string choiceText = currentLine.Get($"Choice{choiceIndex + 1}_ENG");
+            currentState.previousChoices.Add(choiceText);
+
+            // Value Impact 처리
+            foreach (var value in projectData.coreValues)
+            {
+                string impactKey = $"Choice{choiceIndex + 1}_ValueImpact_{value}";
+                if (currentLine.Has(impactKey) && currentLine.TryGetInt(impactKey, out int change))
+                {
+                    currentState.coreValueScores[value] += change;
+                    Debug.Log($"{value} changed by {change} (now: {currentState.coreValueScores[value]})");
+                }
+            }
+
+            // Next ID로 이동
+            string nextIdKey = $"Next{choiceIndex + 1}";
+            if (currentLine.TryGetInt(nextIdKey, out int nextId))
+            {
+                // 같은 챕터 내에서 점프
+                for (int i = 0; i < currentChapterRecords.Count; i++)
+                {
+                    if (currentChapterRecords[i].TryGetInt("ID", out int lineId) && lineId == nextId)
+                    {
+                        currentLineIndex = i;
+                        // TODO: DialogueUI에 표시
+                        // dialogueUI.Show(currentChapterRecords[i]);
+                        return;
+                    }
+                }
+            }
+
+            // 찾지 못하면 다음 라인으로
+            NextLine();
+        }
+
+        /// <summary>
+        /// 챕터 종료 처리
+        /// </summary>
+        void OnChapterEnd()
+        {
+            Debug.Log($"Chapter {currentChapterId} completed");
+
+            // 다음 챕터가 있으면 시작
+            if (currentChapterId < projectData.totalChapters)
+            {
+                StartCoroutine(StartChapter(currentChapterId + 1));
+            }
+            else
+            {
+                // 게임 종료 - 엔딩 결정
+                DetermineEnding();
+            }
+        }
+
+        /// <summary>
+        /// 엔딩 결정
+        /// </summary>
+        void DetermineEnding()
+        {
+            Debug.Log("Game completed! Determining ending...");
+
+            // 엔딩 조건 체크
+            foreach (var ending in projectData.endings)
+            {
+                bool meetsRequirements = true;
+
+                // Core Value 요구치 확인
+                if (ending.requiredValues != null)
+                {
+                    foreach (var req in ending.requiredValues)
+                    {
+                        if (!currentState.coreValueScores.ContainsKey(req.Key) ||
+                            currentState.coreValueScores[req.Key] < req.Value)
+                        {
+                            meetsRequirements = false;
+                            break;
+                        }
+                    }
+                }
+
+                // 캐릭터 호감도 요구치 확인
+                if (meetsRequirements && ending.requiredAffections != null)
+                {
+                    foreach (var req in ending.requiredAffections)
+                    {
+                        if (!currentState.characterAffections.ContainsKey(req.Key) ||
+                            currentState.characterAffections[req.Key] < req.Value)
+                        {
+                            meetsRequirements = false;
+                            break;
+                        }
+                    }
+                }
+
+                if (meetsRequirements)
+                {
+                    Debug.Log($"Ending achieved: {ending.endingName}");
+                    currentState.unlockedEndings.Add(ending.endingId);
+
+                    // TODO: 엔딩 화면 표시
+                    // ShowEnding(ending);
+                    return;
+                }
+            }
+
+            Debug.Log("No specific ending met - showing default ending");
+            // TODO: 기본 엔딩 표시
+        }
+
+        /// <summary>
+        /// CG 해금
+        /// </summary>
+        public void UnlockCG(string cgId)
+        {
+            if (!currentState.unlockedCGs.Contains(cgId))
+            {
+                currentState.unlockedCGs.Add(cgId);
+                Debug.Log($"CG unlocked: {cgId}");
+            }
+        }
+
+        /// <summary>
+        /// 게임 저장
+        /// </summary>
+        public void SaveGame(string saveName)
+        {
+            // TODO: SaveDataManager 통합
+            Debug.Log($"Game saved: {saveName}");
+        }
+
+        /// <summary>
+        /// 게임 로드
+        /// </summary>
+        public void LoadGame(GameStateSnapshot savedState)
+        {
+            currentState = savedState;
+            StartCoroutine(StartChapter(savedState.currentChapter));
+        }
+    }
+}
