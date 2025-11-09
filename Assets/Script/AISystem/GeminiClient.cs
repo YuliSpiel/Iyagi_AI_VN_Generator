@@ -11,7 +11,7 @@ namespace IyagiAI.AISystem
     public class GeminiClient : MonoBehaviour
     {
         private string apiKey;
-        private const string API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent";
+        private const string API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent";
 
         /// <summary>
         /// API 키 초기화
