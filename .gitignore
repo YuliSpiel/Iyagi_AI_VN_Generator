@@ -78,6 +78,13 @@ crashlytics-build.properties
 # 맥 설정 파일
 .DS_Store
 
+# IDE 설정 파일
+.idea/
+.vscode/
+
+# 크래시 리포트 파일
+mono_crash.*.json
+
 # LLM API 설정 파일 (API 키 포함)
 Assets/Resources/LLMConfig.asset
 Assets/Resources/LLMConfig.asset.meta
