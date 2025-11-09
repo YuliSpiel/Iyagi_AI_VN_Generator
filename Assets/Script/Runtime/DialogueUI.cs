@@ -47,6 +47,9 @@ namespace IyagiAI.Runtime
         public Button loadButton;
         public Button settingsButton;
 
+        [Header("UI References")]
+        public DialogueLogUI dialogueLogUI;
+
         [Header("Settings")]
         public float textSpeed = 0.05f;
         public float autoPlayDelay = 2f;
@@ -63,6 +66,9 @@ namespace IyagiAI.Runtime
             nextButton.onClick.AddListener(OnNextClicked);
             autoButton.onClick.AddListener(OnAutoToggled);
             skipButton.onClick.AddListener(OnSkipClicked);
+
+            if (logButton != null)
+                logButton.onClick.AddListener(OnLogClicked);
 
             // Choice 버튼 초기화
             for (int i = 0; i < choiceButtons.Length; i++)
@@ -106,13 +112,22 @@ namespace IyagiAI.Runtime
             DisplayCharacters(record);
 
             // 대화 표시
-            speakerNameText.text = record.GetString("Speaker");
+            string speaker = record.GetString("Speaker");
+            string dialogue = record.GetString("Dialogue");
+
+            speakerNameText.text = speaker;
 
             if (typewriterCoroutine != null)
             {
                 StopCoroutine(typewriterCoroutine);
             }
-            typewriterCoroutine = StartCoroutine(TypewriterEffect(record.GetString("Dialogue")));
+            typewriterCoroutine = StartCoroutine(TypewriterEffect(dialogue));
+
+            // 대화 로그에 추가
+            if (dialogueLogUI != null && !string.IsNullOrEmpty(dialogue))
+            {
+                dialogueLogUI.AddDialogue(speaker, dialogue);
+            }
 
             // 선택지 표시
             if (record.HasChoices())
@@ -315,8 +330,23 @@ namespace IyagiAI.Runtime
 
         void OnChoiceClicked(int choiceIndex)
         {
+            // 선택지 로그에 추가
+            if (dialogueLogUI != null && choiceTexts != null && choiceIndex < choiceTexts.Length)
+            {
+                string choiceText = choiceTexts[choiceIndex].text;
+                dialogueLogUI.AddChoice(choiceText);
+            }
+
             HideChoices();
             onChoiceSelected?.Invoke(choiceIndex);
+        }
+
+        void OnLogClicked()
+        {
+            if (dialogueLogUI != null)
+            {
+                dialogueLogUI.OpenLog();
+            }
         }
 
         void OnAutoToggled()
