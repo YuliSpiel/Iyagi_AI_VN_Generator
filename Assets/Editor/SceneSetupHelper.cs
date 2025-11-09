@@ -390,17 +390,28 @@ public class SceneSetupHelper : EditorWindow
             step2.wizardManager = manager;
 
             GameObject title = CreateTextMeshPro("Title", panel.transform);
-            title.GetComponent<TMP_Text>().text = "Step 2: Core Values";
+            title.GetComponent<TMP_Text>().text = "Step 2: Core Values + Derived Skills";
             title.GetComponent<TMP_Text>().fontSize = 48;
-            SetPosition(title.GetComponent<RectTransform>(), 0.1f, 0.85f, 0.9f, 0.95f);
+            SetPosition(title.GetComponent<RectTransform>(), 0.1f, 0.9f, 0.9f, 0.98f);
 
-            step2.value1Input = CreateInputField("Value1Input", panel.transform, "Core Value 1", 0.1f, 0.7f, 0.45f, 0.77f);
-            step2.value2Input = CreateInputField("Value2Input", panel.transform, "Core Value 2", 0.55f, 0.7f, 0.9f, 0.77f);
-            step2.value3Input = CreateInputField("Value3Input", panel.transform, "Core Value 3", 0.1f, 0.6f, 0.45f, 0.67f);
-            step2.value4Input = CreateInputField("Value4Input", panel.transform, "Core Value 4 (Optional)", 0.55f, 0.6f, 0.9f, 0.67f);
+            // Core Value 1 (Required)
+            step2.value1NameInput = CreateInputField("Value1NameInput", panel.transform, "Core Value 1 이름", 0.05f, 0.75f, 0.35f, 0.82f);
+            step2.value1SkillsInput = CreateInputField("Value1SkillsInput", panel.transform, "파생 스탯 (쉼표로 구분)", 0.4f, 0.75f, 0.95f, 0.82f);
+
+            // Core Value 2 (Required)
+            step2.value2NameInput = CreateInputField("Value2NameInput", panel.transform, "Core Value 2 이름", 0.05f, 0.65f, 0.35f, 0.72f);
+            step2.value2SkillsInput = CreateInputField("Value2SkillsInput", panel.transform, "파생 스탯 (쉼표로 구분)", 0.4f, 0.65f, 0.95f, 0.72f);
+
+            // Core Value 3 (Optional)
+            step2.value3NameInput = CreateInputField("Value3NameInput", panel.transform, "Core Value 3 이름 (선택)", 0.05f, 0.55f, 0.35f, 0.62f);
+            step2.value3SkillsInput = CreateInputField("Value3SkillsInput", panel.transform, "파생 스탯 (쉼표로 구분)", 0.4f, 0.55f, 0.95f, 0.62f);
+
+            // Core Value 4 (Optional)
+            step2.value4NameInput = CreateInputField("Value4NameInput", panel.transform, "Core Value 4 이름 (선택)", 0.05f, 0.45f, 0.35f, 0.52f);
+            step2.value4SkillsInput = CreateInputField("Value4SkillsInput", panel.transform, "파생 스탯 (쉼표로 구분)", 0.4f, 0.45f, 0.95f, 0.52f);
 
             step2.autoSuggestButton = CreateButton("AutoSuggestButton", panel.transform).GetComponent<Button>();
-            SetPosition(step2.autoSuggestButton.GetComponent<RectTransform>(), 0.3f, 0.45f, 0.7f, 0.52f);
+            SetPosition(step2.autoSuggestButton.GetComponent<RectTransform>(), 0.3f, 0.3f, 0.7f, 0.37f);
 
             step2.nextStepButton = CreateButton("NextStepButton", panel.transform).GetComponent<Button>();
             SetPosition(step2.nextStepButton.GetComponent<RectTransform>(), 0.7f, 0.05f, 0.9f, 0.12f);
@@ -438,13 +449,16 @@ public class SceneSetupHelper : EditorWindow
             SetPosition(title.GetComponent<RectTransform>(), 0.1f, 0.9f, 0.9f, 0.98f);
 
             // Left side: Character Info
-            step4.nameInput = CreateInputField("NameInput", panel.transform, "Name", 0.05f, 0.75f, 0.45f, 0.82f);
-            step4.ageInput = CreateInputField("AgeInput", panel.transform, "Age", 0.05f, 0.65f, 0.25f, 0.72f);
-            step4.genderDropdown = CreateDropdown("GenderDropdown", panel.transform, 0.3f, 0.65f, 0.45f, 0.72f);
-            step4.povDropdown = CreateDropdown("POVDropdown", panel.transform, 0.05f, 0.55f, 0.25f, 0.62f);
-            step4.archetypeDropdown = CreateDropdown("ArchetypeDropdown", panel.transform, 0.3f, 0.55f, 0.45f, 0.62f);
-            step4.appearanceInput = CreateInputField("AppearanceInput", panel.transform, "Appearance", 0.05f, 0.35f, 0.45f, 0.52f);
-            step4.personalityInput = CreateInputField("PersonalityInput", panel.transform, "Personality", 0.05f, 0.15f, 0.45f, 0.32f);
+            step4.nameInput = CreateInputField("NameInput", panel.transform, "Name", 0.05f, 0.78f, 0.45f, 0.85f);
+            step4.ageInput = CreateInputField("AgeInput", panel.transform, "Age", 0.05f, 0.68f, 0.25f, 0.75f);
+            step4.genderDropdown = CreateDropdown("GenderDropdown", panel.transform, 0.3f, 0.68f, 0.45f, 0.75f);
+            step4.povDropdown = CreateDropdown("POVDropdown", panel.transform, 0.05f, 0.58f, 0.25f, 0.65f);
+            step4.archetypeDropdown = CreateDropdown("ArchetypeDropdown", panel.transform, 0.3f, 0.58f, 0.45f, 0.65f);
+            step4.appearanceInput = CreateInputField("AppearanceInput", panel.transform, "Appearance", 0.05f, 0.38f, 0.45f, 0.55f);
+            step4.personalityInput = CreateInputField("PersonalityInput", panel.transform, "Personality", 0.05f, 0.18f, 0.45f, 0.35f);
+
+            step4.autoFillButton = CreateButton("AutoFillButton", panel.transform).GetComponent<Button>();
+            SetPosition(step4.autoFillButton.GetComponent<RectTransform>(), 0.05f, 0.08f, 0.45f, 0.15f);
 
             // Right side: Face Preview
             GameObject previewPanel = CreateUIObject("FacePreviewPanel", panel.transform);
@@ -493,17 +507,20 @@ public class SceneSetupHelper : EditorWindow
             SetPosition(title.GetComponent<RectTransform>(), 0.1f, 0.9f, 0.9f, 0.98f);
 
             // Similar layout to Step4 but with NPC-specific fields
-            step5.nameInput = CreateInputField("NameInput", panel.transform, "NPC Name", 0.05f, 0.75f, 0.45f, 0.82f);
-            step5.ageInput = CreateInputField("AgeInput", panel.transform, "Age", 0.05f, 0.65f, 0.25f, 0.72f);
-            step5.genderDropdown = CreateDropdown("GenderDropdown", panel.transform, 0.3f, 0.65f, 0.45f, 0.72f);
-            step5.archetypeDropdown = CreateDropdown("ArchetypeDropdown", panel.transform, 0.05f, 0.55f, 0.25f, 0.62f);
-            step5.roleInput = CreateInputField("RoleInput", panel.transform, "Role (Friend/Rival/etc)", 0.3f, 0.55f, 0.45f, 0.62f);
-            step5.appearanceInput = CreateInputField("AppearanceInput", panel.transform, "Appearance", 0.05f, 0.35f, 0.45f, 0.52f);
-            step5.personalityInput = CreateInputField("PersonalityInput", panel.transform, "Personality", 0.05f, 0.15f, 0.45f, 0.32f);
+            step5.nameInput = CreateInputField("NameInput", panel.transform, "NPC Name", 0.05f, 0.78f, 0.45f, 0.85f);
+            step5.ageInput = CreateInputField("AgeInput", panel.transform, "Age", 0.05f, 0.68f, 0.25f, 0.75f);
+            step5.genderDropdown = CreateDropdown("GenderDropdown", panel.transform, 0.3f, 0.68f, 0.45f, 0.75f);
+            step5.archetypeDropdown = CreateDropdown("ArchetypeDropdown", panel.transform, 0.05f, 0.58f, 0.25f, 0.65f);
+            step5.roleInput = CreateInputField("RoleInput", panel.transform, "Role (Friend/Rival/etc)", 0.3f, 0.58f, 0.45f, 0.65f);
+            step5.appearanceInput = CreateInputField("AppearanceInput", panel.transform, "Appearance", 0.05f, 0.38f, 0.45f, 0.55f);
+            step5.personalityInput = CreateInputField("PersonalityInput", panel.transform, "Personality", 0.05f, 0.18f, 0.45f, 0.35f);
 
             GameObject romanceToggleObj = CreateUIObject("RomanceableToggle", panel.transform);
             step5.romanceableToggle = romanceToggleObj.AddComponent<Toggle>();
-            SetPosition(romanceToggleObj.GetComponent<RectTransform>(), 0.05f, 0.08f, 0.3f, 0.12f);
+            SetPosition(romanceToggleObj.GetComponent<RectTransform>(), 0.05f, 0.08f, 0.2f, 0.15f);
+
+            step5.autoFillButton = CreateButton("AutoFillButton", panel.transform).GetComponent<Button>();
+            SetPosition(step5.autoFillButton.GetComponent<RectTransform>(), 0.25f, 0.08f, 0.45f, 0.15f);
 
             // Face Preview (same as Step4)
             GameObject previewPanel = CreateUIObject("FacePreviewPanel", panel.transform);
