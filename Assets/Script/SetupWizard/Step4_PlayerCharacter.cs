@@ -37,6 +37,10 @@ namespace IyagiAI.SetupWizard
         public Button confirmButton;
         public Button nextStepButton;
 
+        [Header("Loading Popup")]
+        public GameObject loadingPopup;
+        public TMP_Text loadingText;
+
         void Start()
         {
             // faceGenerator 연결 및 히스토리 초기화
@@ -45,6 +49,10 @@ namespace IyagiAI.SetupWizard
                 faceGenerator.previewImage = previewImage;
                 faceGenerator.ClearHistory(); // Step4 시작 시 히스토리 초기화
             }
+
+            // 로딩 팝업 초기화
+            if (loadingPopup != null)
+                loadingPopup.SetActive(false);
 
             // 드롭다운 초기화
             InitializeDropdowns();
@@ -317,6 +325,10 @@ JSON 형식으로만 출력:
                 appearanceInput.text,
                 wizardManager.nanoBananaClient,
                 () => {
+                    // 로딩 팝업 숨기기
+                    if (loadingPopup != null)
+                        loadingPopup.SetActive(false);
+
                     generateFaceButton.interactable = true;
                     confirmButton.interactable = true;
 
@@ -328,6 +340,15 @@ JSON 형식으로만 출력:
                     }
 
                     UpdatePreviewNavigation();
+                },
+                () => {
+                    // 로딩 팝업 표시
+                    if (loadingPopup != null)
+                    {
+                        loadingPopup.SetActive(true);
+                        if (loadingText != null)
+                            loadingText.text = "얼굴 이미지 생성 중...";
+                    }
                 }
             );
         }
@@ -378,8 +399,21 @@ JSON 형식으로만 출력:
             SaveFacePreview(character, previewImage.sprite.texture);
 #endif
 
-            // 스탠딩 5종 자동 생성
-            StartCoroutine(GenerateStandingSprites(character));
+            // 테스트 모드 확인 (AutoFill 컴포넌트 존재 여부로 판단)
+            var autoFill = wizardManager.GetComponent<SetupWizardAutoFill>();
+            bool isTestMode = autoFill != null && autoFill.enableAutoFill;
+
+            if (isTestMode)
+            {
+                // 테스트 모드: 스탠딩 이미지 생성 스킵
+                Debug.Log("[Test Mode] Skipping standing sprite generation");
+                nextStepButton.interactable = true;
+            }
+            else
+            {
+                // 일반 모드: 스탠딩 5종 자동 생성
+                StartCoroutine(GenerateStandingSprites(character));
+            }
         }
 
 #if UNITY_EDITOR

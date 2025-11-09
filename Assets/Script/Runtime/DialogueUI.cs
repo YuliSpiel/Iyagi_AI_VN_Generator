@@ -63,18 +63,26 @@ namespace IyagiAI.Runtime
         void Start()
         {
             // 버튼 이벤트 연결
-            nextButton.onClick.AddListener(OnNextClicked);
-            autoButton.onClick.AddListener(OnAutoToggled);
-            skipButton.onClick.AddListener(OnSkipClicked);
-
+            if (nextButton != null)
+                nextButton.onClick.AddListener(OnNextClicked);
+            if (autoButton != null)
+                autoButton.onClick.AddListener(OnAutoToggled);
+            if (skipButton != null)
+                skipButton.onClick.AddListener(OnSkipClicked);
             if (logButton != null)
                 logButton.onClick.AddListener(OnLogClicked);
 
             // Choice 버튼 초기화
-            for (int i = 0; i < choiceButtons.Length; i++)
+            if (choiceButtons != null)
             {
-                int index = i; // 클로저 문제 방지
-                choiceButtons[i].onClick.AddListener(() => OnChoiceClicked(index));
+                for (int i = 0; i < choiceButtons.Length; i++)
+                {
+                    if (choiceButtons[i] != null)
+                    {
+                        int index = i; // 클로저 문제 방지
+                        choiceButtons[i].onClick.AddListener(() => OnChoiceClicked(index));
+                    }
+                }
             }
 
             // 초기 상태

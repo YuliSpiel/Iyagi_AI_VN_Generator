@@ -28,7 +28,8 @@ namespace IyagiAI.SetupWizard
         public IEnumerator GenerateNewFace(
             string appearanceDescription,
             NanoBananaClient client,
-            System.Action onComplete)
+            System.Action onComplete,
+            System.Action onGeneratingStarted = null)
         {
             if (isGenerating)
             {
@@ -37,6 +38,7 @@ namespace IyagiAI.SetupWizard
             }
 
             isGenerating = true;
+            onGeneratingStarted?.Invoke();
 
             // 얼굴 프리뷰 프롬프트 (작은 크기, 빠른 생성)
             string prompt = $@"A portrait of a character for a visual novel.

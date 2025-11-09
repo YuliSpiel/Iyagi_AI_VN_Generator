@@ -32,15 +32,24 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/Scenes/Temp 3.unity
     guid: 1f5a8b69304584a6e8afdd904ecad0de
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/01_TitleScene.unity
     guid: b840cc89d9a954483bd0182a2a58779b
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/02_GameScene.unity
     guid: 6bd1715ab285149938c36e52277f4ef4
-  - enabled: 1
+  - enabled: 0
     path: Assets/Scenes/LLMGameScene.unity
     guid: c6db5a5c31e1e49e1ab811cecc2c5ea5
+  - enabled: 1
+    path: Assets/Scenes/TitleScene.unity
+    guid: eeaf853cd61914b5bb2ac3748ee4ae3c
+  - enabled: 1
+    path: Assets/Scenes/SetupWizardScene.unity
+    guid: f23131268f0634a64aa45251a423c844
+  - enabled: 1
+    path: Assets/Scenes/GameScene.unity
+    guid: 6fa228219fb77413d91625f752500e59
   m_configObjects:
     com.unity.addressableassets: {fileID: 11400000, guid: c274adb31ea2f49a09628bd2ed2d3506, type: 2}
     com.unity.localization.settings: {fileID: 11400000, guid: 3512745cca9aa4bb095d65e29a60776c, type: 2}

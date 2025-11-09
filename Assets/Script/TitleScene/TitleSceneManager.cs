@@ -80,7 +80,7 @@ namespace IyagiAI.TitleScene
         /// </summary>
         public void OpenSetupWizard()
         {
-            UnityEngine.SceneManagement.SceneManager.LoadScene("SetupWizard");
+            UnityEngine.SceneManagement.SceneManager.LoadScene("SetupWizardScene");
         }
 
         /// <summary>

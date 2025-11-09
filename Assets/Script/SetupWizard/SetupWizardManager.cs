@@ -20,7 +20,7 @@ namespace IyagiAI.SetupWizard
         [Header("Steps (UI Panels)")]
         public GameObject[] stepPanels; // Step1 ~ Step6 UI 패널
 
-        private int currentStep = 0;
+        public int currentStep { get; private set; } = 0;
 
         void Start()
         {
@@ -40,7 +40,7 @@ namespace IyagiAI.SetupWizard
                 return;
             }
 
-            // 새 프로젝트 데이터 생성
+            // 새 프로젝트 데이터 생성 (메모리에만)
             projectData = ScriptableObject.CreateInstance<VNProjectData>();
             projectData.projectGuid = System.Guid.NewGuid().ToString();
             projectData.createdTimestamp = System.DateTimeOffset.UtcNow.ToUnixTimeSeconds();
@@ -55,6 +55,53 @@ namespace IyagiAI.SetupWizard
             // 첫 번째 스텝 표시
             ShowStep(0);
         }
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// Step 1에서 타이틀 입력 후 에셋 파일 생성
+        /// </summary>
+        public void CreateProjectAsset(string gameTitle)
+        {
+            projectData.gameTitle = gameTitle;
+
+            // 프로젝트 파일 생성
+            string projectName = gameTitle.Replace(" ", "_");
+            string savePath = $"Assets/Resources/Projects/{projectName}.asset";
+
+            // 폴더 생성
+            if (!System.IO.Directory.Exists("Assets/Resources/Projects"))
+            {
+                System.IO.Directory.CreateDirectory("Assets/Resources/Projects");
+            }
+
+            // 기존 에셋 삭제
+            if (UnityEditor.AssetDatabase.LoadAssetAtPath<VNProjectData>(savePath) != null)
+            {
+                UnityEditor.AssetDatabase.DeleteAsset(savePath);
+                UnityEditor.AssetDatabase.SaveAssets();
+                UnityEditor.AssetDatabase.Refresh();
+                Debug.Log($"Deleted existing project: {savePath}");
+            }
+
+            // 에셋 파일 생성
+            UnityEditor.AssetDatabase.CreateAsset(projectData, savePath);
+            UnityEditor.AssetDatabase.SaveAssets();
+
+            Debug.Log($"Created project asset: {savePath}");
+        }
+
+        /// <summary>
+        /// 각 스텝에서 변경사항을 에셋에 저장
+        /// </summary>
+        public void SaveProjectAsset()
+        {
+            if (projectData != null)
+            {
+                UnityEditor.EditorUtility.SetDirty(projectData);
+                UnityEditor.AssetDatabase.SaveAssets();
+            }
+        }
+#endif
 
         /// <summary>
         /// 특정 스텝 표시
@@ -165,42 +212,26 @@ namespace IyagiAI.SetupWizard
         public void OnWizardComplete()
         {
 #if UNITY_EDITOR
-            // 프로젝트 데이터를 ScriptableObject로 저장
-            string projectName = projectData.gameTitle.Replace(" ", "_");
-            string savePath = $"Assets/VNProjects/{projectName}.asset";
-
-            // 폴더 생성
-            if (!System.IO.Directory.Exists("Assets/VNProjects"))
-            {
-                System.IO.Directory.CreateDirectory("Assets/VNProjects");
-            }
-
-            // 기존 에셋이 있으면 삭제
-            if (System.IO.File.Exists(savePath))
-            {
-                UnityEditor.AssetDatabase.DeleteAsset(savePath);
-                Debug.Log($"Deleted existing project at {savePath}");
-            }
-
-            UnityEditor.AssetDatabase.CreateAsset(projectData, savePath);
-
             // 캐릭터 데이터를 서브 에셋으로 저장
+            string assetPath = UnityEditor.AssetDatabase.GetAssetPath(projectData);
+
             if (projectData.playerCharacter != null)
             {
                 projectData.playerCharacter.name = projectData.playerCharacter.characterName;
-                UnityEditor.AssetDatabase.AddObjectToAsset(projectData.playerCharacter, projectData);
+                UnityEditor.AssetDatabase.AddObjectToAsset(projectData.playerCharacter, assetPath);
             }
 
             foreach (var npc in projectData.npcs)
             {
                 npc.name = npc.characterName;
-                UnityEditor.AssetDatabase.AddObjectToAsset(npc, projectData);
+                UnityEditor.AssetDatabase.AddObjectToAsset(npc, assetPath);
             }
 
+            // 최종 저장
+            UnityEditor.EditorUtility.SetDirty(projectData);
             UnityEditor.AssetDatabase.SaveAssets();
-            UnityEditor.AssetDatabase.Refresh();
 
-            Debug.Log($"VN Project saved: {savePath}");
+            Debug.Log($"VN Project completed: {assetPath}");
 #endif
 
             // SaveDataManager에 프로젝트 슬롯 생성

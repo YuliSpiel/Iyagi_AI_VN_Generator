@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using IyagiAI.AISystem;
 
@@ -30,6 +31,46 @@ namespace IyagiAI.Runtime
 
         void Start()
         {
+            // SaveDataManager에서 현재 로드된 SaveFile 정보 가져오기
+            string currentSaveFileId = PlayerPrefs.GetString("CurrentSaveFileId", "");
+
+            if (string.IsNullOrEmpty(currentSaveFileId))
+            {
+                Debug.LogError("No save file loaded! Returning to title...");
+                UnityEngine.SceneManagement.SceneManager.LoadScene("TitleScene");
+                return;
+            }
+
+            // SaveFile에서 프로젝트 GUID 찾기
+            SaveFile saveFile = null;
+            foreach (var project in SaveDataManager.Instance.GetAllProjectSlots())
+            {
+                saveFile = project.saveFiles.FirstOrDefault(s => s.saveFileId == currentSaveFileId);
+                if (saveFile != null)
+                    break;
+            }
+
+            if (saveFile == null)
+            {
+                Debug.LogError($"SaveFile not found: {currentSaveFileId}");
+                UnityEngine.SceneManagement.SceneManager.LoadScene("TitleScene");
+                return;
+            }
+
+            // 프로젝트 데이터 로드 (Resources에서)
+            string projectGuid = saveFile.projectGuid;
+            var allProjects = Resources.LoadAll<VNProjectData>("Projects");
+            projectData = System.Array.Find(allProjects, p => p.projectGuid == projectGuid);
+
+            if (projectData == null)
+            {
+                Debug.LogError($"Failed to load project data: {projectGuid}");
+                UnityEngine.SceneManagement.SceneManager.LoadScene("TitleScene");
+                return;
+            }
+
+            Debug.Log($"Loaded project: {projectData.gameTitle}");
+
             // API 설정 로드
             APIConfigData config = Resources.Load<APIConfigData>("APIConfig");
 
@@ -61,12 +102,6 @@ namespace IyagiAI.Runtime
                 spriteManager.Initialize(projectData, nanoBananaClient);
             }
 
-            // SaveDataManager 초기화
-            if (saveManager == null)
-            {
-                saveManager = gameObject.AddComponent<SaveDataManager>();
-            }
-
             // 게임 상태 초기화
             InitializeGameState();
 
@@ -84,16 +119,30 @@ namespace IyagiAI.Runtime
             currentState.currentLineId = 1000; // 챕터 1의 시작 ID
 
             // Core Values 초기화
-            foreach (var value in projectData.coreValues)
+            if (projectData != null && projectData.coreValues != null)
             {
-                currentState.coreValueScores[value.name] = 0;
+                foreach (var value in projectData.coreValues)
+                {
+                    if (value != null && !string.IsNullOrEmpty(value.name))
+                    {
+                        currentState.coreValueScores[value.name] = 0;
+                    }
+                }
             }
 
             // 캐릭터 호감도 초기화
-            foreach (var npc in projectData.npcs)
+            if (projectData != null && projectData.npcs != null)
             {
-                currentState.characterAffections[npc.characterName] = npc.initialAffection;
+                foreach (var npc in projectData.npcs)
+                {
+                    if (npc != null && !string.IsNullOrEmpty(npc.characterName))
+                    {
+                        currentState.characterAffections[npc.characterName] = npc.initialAffection;
+                    }
+                }
             }
+
+            Debug.Log($"Game state initialized: {currentState.coreValueScores.Count} core values, {currentState.characterAffections.Count} NPCs");
         }
 
         /// <summary>

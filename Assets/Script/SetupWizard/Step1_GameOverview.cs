@@ -233,11 +233,13 @@ JSON 형식으로만 출력:
         public void OnNextStepClicked()
         {
             // 데이터 저장
-            wizardManager.projectData.gameTitle = titleInput.text;
             wizardManager.projectData.gamePremise = premiseInput.text;
             wizardManager.projectData.genre = (Genre)genreDropdown.value;
             wizardManager.projectData.tone = (Tone)toneDropdown.value;
             wizardManager.projectData.playtime = (PlaytimeEstimate)playtimeDropdown.value;
+
+            // 타이틀 입력 후 에셋 파일 생성
+            wizardManager.CreateProjectAsset(titleInput.text);
 
             wizardManager.NextStep();
         }

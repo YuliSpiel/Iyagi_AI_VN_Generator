@@ -112,46 +112,20 @@ namespace IyagiAI.SetupWizard
             createProjectButton.interactable = false;
             backButton.interactable = false;
 
-            // 프로젝트 메타데이터 설정
-            wizardManager.projectData.projectGuid = System.Guid.NewGuid().ToString();
-            wizardManager.projectData.createdTimestamp = System.DateTimeOffset.Now.ToUnixTimeSeconds();
-
 #if UNITY_EDITOR
-            // 에디터에서는 ScriptableObject로 저장
-            SaveProjectAsScriptableObject();
+            // 에디터에서는 마지막 변경사항 저장
+            wizardManager.SaveProjectAsset();
 #else
             // 빌드에서는 JSON으로 저장
             SaveProjectAsJson();
 #endif
 
-            Debug.Log($"Project created: {wizardManager.projectData.gameTitle}");
+            Debug.Log($"Project finalized: {wizardManager.projectData.gameTitle}");
             Debug.Log($"Project GUID: {wizardManager.projectData.projectGuid}");
 
-            // 위저드 완료
+            // 위저드 완료 (캐릭터 서브 에셋 추가 및 세이브 파일 생성)
             wizardManager.OnWizardComplete();
         }
-
-#if UNITY_EDITOR
-        private void SaveProjectAsScriptableObject()
-        {
-            string dir = "Assets/Resources/Projects";
-            if (!System.IO.Directory.Exists(dir))
-            {
-                System.IO.Directory.CreateDirectory(dir);
-            }
-
-            // 파일명에 사용할 수 없는 문자 제거
-            string safeName = GetSafeFileName(wizardManager.projectData.gameTitle);
-            string path = $"{dir}/{safeName}.asset";
-
-            // ScriptableObject 생성 및 저장
-            UnityEditor.AssetDatabase.CreateAsset(wizardManager.projectData, path);
-            UnityEditor.AssetDatabase.SaveAssets();
-            UnityEditor.AssetDatabase.Refresh();
-
-            Debug.Log($"Project saved as ScriptableObject: {path}");
-        }
-#endif
 
         private void SaveProjectAsJson()
         {
