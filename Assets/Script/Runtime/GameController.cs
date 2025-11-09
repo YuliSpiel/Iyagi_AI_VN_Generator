@@ -14,6 +14,9 @@ namespace IyagiAI.Runtime
         [Header("Project")]
         public VNProjectData projectData;
 
+        [Header("UI")]
+        public DialogueUI dialogueUI;
+
         [Header("Managers")]
         public ChapterGenerationManager chapterManager;
         public RuntimeSpriteManager spriteManager;
@@ -111,14 +114,60 @@ namespace IyagiAI.Runtime
                 currentChapterId = chapterId;
                 currentLineIndex = 0;
 
-                // TODO: DialogueUI에 첫 라인 표시
-                // dialogueUI.Show(currentChapterRecords[0]);
+                // DialogueUI에 첫 라인 표시
+                ShowCurrentLine();
 
                 Debug.Log($"Chapter {chapterId} loaded with {currentChapterRecords.Count} lines");
             }
             else
             {
                 Debug.LogError($"Failed to load chapter {chapterId}");
+            }
+        }
+
+        /// <summary>
+        /// 현재 라인 표시
+        /// </summary>
+        void ShowCurrentLine()
+        {
+            if (currentChapterRecords == null || currentLineIndex >= currentChapterRecords.Count)
+            {
+                return;
+            }
+
+            var currentLine = currentChapterRecords[currentLineIndex];
+
+            // DialogueUI에 표시 (선택지 콜백 포함)
+            dialogueUI.DisplayRecord(currentLine, OnDialogueAction);
+
+            // CG 해금 체크
+            if (currentLine.HasCG())
+            {
+                string cgId = currentLine.GetString("CG_ID");
+                UnlockCG(cgId);
+            }
+
+            // 상태 업데이트
+            if (currentLine.TryGetInt("ID", out int lineId))
+            {
+                currentState.currentLineId = lineId;
+            }
+        }
+
+        /// <summary>
+        /// DialogueUI에서 호출되는 액션 처리
+        /// </summary>
+        void OnDialogueAction(int choiceIndex)
+        {
+            if (choiceIndex == -1)
+            {
+                // 일반 진행 (Next 버튼)
+                NextLine();
+            }
+            else
+            {
+                // 선택지 선택
+                OnChoiceSelected(choiceIndex);
             }
         }
 
@@ -135,13 +184,7 @@ namespace IyagiAI.Runtime
             }
 
             currentLineIndex++;
-            var nextLine = currentChapterRecords[currentLineIndex];
-
-            // TODO: DialogueUI에 표시
-            // dialogueUI.Show(nextLine);
-
-            // 상태 업데이트
-            currentState.currentLineId = int.Parse(nextLine.Get("ID"));
+            ShowCurrentLine();
         }
 
         /// <summary>
@@ -152,7 +195,7 @@ namespace IyagiAI.Runtime
             var currentLine = currentChapterRecords[currentLineIndex];
 
             // 선택지 텍스트
-            string choiceText = currentLine.Get($"Choice{choiceIndex + 1}_ENG");
+            string choiceText = currentLine.GetString($"Choice{choiceIndex + 1}");
             currentState.previousChoices.Add(choiceText);
 
             // Value Impact 처리
@@ -166,6 +209,20 @@ namespace IyagiAI.Runtime
                 }
             }
 
+            // Affection Impact 처리
+            foreach (var npc in projectData.npcs)
+            {
+                string affectKey = $"Choice{choiceIndex + 1}_Affection_{npc.characterName}";
+                if (currentLine.Has(affectKey) && currentLine.TryGetInt(affectKey, out int change))
+                {
+                    if (currentState.characterAffections.ContainsKey(npc.characterName))
+                    {
+                        currentState.characterAffections[npc.characterName] += change;
+                        Debug.Log($"{npc.characterName} affection changed by {change} (now: {currentState.characterAffections[npc.characterName]})");
+                    }
+                }
+            }
+
             // Next ID로 이동
             string nextIdKey = $"Next{choiceIndex + 1}";
             if (currentLine.TryGetInt(nextIdKey, out int nextId))
@@ -176,8 +233,7 @@ namespace IyagiAI.Runtime
                     if (currentChapterRecords[i].TryGetInt("ID", out int lineId) && lineId == nextId)
                     {
                         currentLineIndex = i;
-                        // TODO: DialogueUI에 표시
-                        // dialogueUI.Show(currentChapterRecords[i]);
+                        ShowCurrentLine();
                         return;
                     }
                 }
