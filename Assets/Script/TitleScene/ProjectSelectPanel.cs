@@ -144,12 +144,18 @@ namespace IyagiAI.TitleScene
         private bool ConfirmDelete()
         {
             // TODO: 제대로 된 다이얼로그 구현
+#if UNITY_EDITOR
             return UnityEditor.EditorUtility.DisplayDialog(
                 "프로젝트 삭제",
                 $"'{slot.projectName}' 프로젝트를 정말 삭제하시겠습니까?\n모든 저장 파일과 CG가 삭제됩니다.",
                 "삭제",
                 "취소"
             );
+#else
+            // 런타임에서는 일단 true 반환 (나중에 UI 다이얼로그로 교체 필요)
+            Debug.LogWarning($"Deleting project: {slot.projectName} (no confirmation dialog in build)");
+            return true;
+#endif
         }
     }
 }
