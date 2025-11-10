@@ -72,21 +72,78 @@ namespace IyagiAI.Editor
             AssetDatabase.CreateAsset(npc1, $"{projectFolder}/NPC_FriendA.asset");
             AssetDatabase.SaveAssets();
 
-            // 6. SaveDataManager에 프로젝트 슬롯 생성
-            var saveManager = SaveDataManager.Instance;
-            var projectSlot = saveManager.GetProjectSlot(projectData.projectGuid);
-
-            if (projectSlot == null)
+            // 6. SaveDataManager 데이터를 직접 JSON으로 생성
+            string saveFolder = System.IO.Path.Combine(UnityEngine.Application.persistentDataPath, "Saves");
+            if (!System.IO.Directory.Exists(saveFolder))
             {
-                projectSlot = saveManager.CreateProjectSlot(projectData);
-                Debug.Log($"Created project slot: {projectSlot.projectName}");
+                System.IO.Directory.CreateDirectory(saveFolder);
             }
 
-            // 7. 첫 챕터용 SaveFile 생성
-            var saveFile = saveManager.CreateNewSaveFile(projectData.projectGuid, 1);
+            // 프로젝트 슬롯 파일 생성
+            string projectSlotsFile = System.IO.Path.Combine(saveFolder, "projects.json");
+
+            // IyagiAI.Runtime 네임스페이스의 실제 클래스 사용
+            var projectSlot = new ProjectSlot
+            {
+                projectGuid = projectData.projectGuid,
+                projectName = projectData.gameTitle,
+                totalChapters = projectData.totalChapters,
+                createdDate = System.DateTime.Now,
+                lastPlayedDate = System.DateTime.Now,
+                saveFiles = new List<SaveFile>(),
+                unlockedCGs = new List<string>()
+            };
+
+            // SaveFile 생성
+            var saveFile = new SaveFile
+            {
+                saveFileId = System.Guid.NewGuid().ToString(),
+                projectGuid = projectData.projectGuid,
+                slotNumber = 1,
+                currentChapter = 1,
+                totalChapters = projectData.totalChapters,
+                createdDate = System.DateTime.Now,
+                lastPlayedDate = System.DateTime.Now,
+                totalPlaytimeSeconds = 0,
+                gameState = new GameState()
+            };
+
+            projectSlot.saveFiles.Add(saveFile);
+
+            // 기존 프로젝트 슬롯 로드 (있으면)
+            List<ProjectSlot> allSlots = new List<ProjectSlot>();
+            if (System.IO.File.Exists(projectSlotsFile))
+            {
+                try
+                {
+                    string existingJson = System.IO.File.ReadAllText(projectSlotsFile);
+                    var wrapper = JsonUtility.FromJson<ProjectSlotListWrapper>(existingJson);
+                    if (wrapper != null && wrapper.projects != null)
+                    {
+                        allSlots = wrapper.projects;
+                    }
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning($"Failed to load existing project slots: {e.Message}");
+                }
+            }
+
+            // 기존에 같은 GUID가 있으면 제거
+            allSlots.RemoveAll(p => p.projectGuid == projectData.projectGuid);
+
+            // 새 슬롯 추가
+            allSlots.Add(projectSlot);
+
+            // JSON으로 저장 - JsonUtility 대신 수동 JSON 생성
+            string projectsJson = SerializeProjectSlots(allSlots);
+            System.IO.File.WriteAllText(projectSlotsFile, projectsJson);
+
+            Debug.Log($"Created project slot: {projectSlot.projectName}");
+            Debug.Log($"Project slots file: {projectSlotsFile}");
             Debug.Log($"Created save file: {saveFile.saveFileId}");
 
-            // 8. 더미 대사 데이터 생성 (ChapterData로 캐싱)
+            // 7. 더미 대사 데이터 생성 (ChapterData로 캐싱)
             CreateDummyChapterData(projectData, saveFile);
 
             Debug.Log("✅ Dummy project created successfully!");
@@ -95,6 +152,62 @@ namespace IyagiAI.Editor
             Debug.Log("타이틀 씬에서 'Load Game' → '더미 테스트 프로젝트' 선택하여 테스트하세요.");
 
             AssetDatabase.Refresh();
+        }
+
+        /// <summary>
+        /// ProjectSlot 리스트를 JSON으로 직접 직렬화 (DateTime 처리 포함)
+        /// </summary>
+        private static string SerializeProjectSlots(List<ProjectSlot> slots)
+        {
+            var json = new System.Text.StringBuilder();
+            json.AppendLine("{");
+            json.AppendLine("  \"projects\": [");
+
+            for (int i = 0; i < slots.Count; i++)
+            {
+                var slot = slots[i];
+                json.AppendLine("    {");
+                json.AppendLine($"      \"projectGuid\": \"{slot.projectGuid}\",");
+                json.AppendLine($"      \"projectName\": \"{slot.projectName}\",");
+                json.AppendLine($"      \"totalChapters\": {slot.totalChapters},");
+                json.AppendLine($"      \"createdDate\": \"{slot.createdDate:O}\",");
+                json.AppendLine($"      \"lastPlayedDate\": \"{slot.lastPlayedDate:O}\",");
+                json.AppendLine("      \"saveFiles\": [");
+
+                for (int j = 0; j < slot.saveFiles.Count; j++)
+                {
+                    var save = slot.saveFiles[j];
+                    json.AppendLine("        {");
+                    json.AppendLine($"          \"saveFileId\": \"{save.saveFileId}\",");
+                    json.AppendLine($"          \"projectGuid\": \"{save.projectGuid}\",");
+                    json.AppendLine($"          \"slotNumber\": {save.slotNumber},");
+                    json.AppendLine($"          \"currentChapter\": {save.currentChapter},");
+                    json.AppendLine($"          \"totalChapters\": {save.totalChapters},");
+                    json.AppendLine($"          \"createdDate\": \"{save.createdDate:O}\",");
+                    json.AppendLine($"          \"lastPlayedDate\": \"{save.lastPlayedDate:O}\",");
+                    json.AppendLine($"          \"totalPlaytimeSeconds\": {save.totalPlaytimeSeconds},");
+                    json.AppendLine("          \"gameState\": {");
+                    json.AppendLine("            \"coreValueScores\": {},");
+                    json.AppendLine("            \"skillScores\": {},");
+                    json.AppendLine("            \"npcAffections\": {},");
+                    json.AppendLine("            \"previousChoices\": []");
+                    json.AppendLine("          }");
+                    json.Append("        }");
+                    if (j < slot.saveFiles.Count - 1) json.Append(",");
+                    json.AppendLine();
+                }
+
+                json.AppendLine("      ],");
+                json.AppendLine("      \"unlockedCGs\": []");
+                json.Append("    }");
+                if (i < slots.Count - 1) json.Append(",");
+                json.AppendLine();
+            }
+
+            json.AppendLine("  ]");
+            json.AppendLine("}");
+
+            return json.ToString();
         }
 
         /// <summary>
