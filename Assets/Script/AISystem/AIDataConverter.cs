@@ -31,6 +31,9 @@ namespace IyagiAI.AISystem
 
             string jsonArray = jsonResponse.Substring(startIndex, endIndex - startIndex + 1);
 
+            // JSON 복구 시도: 닫는 괄호가 없으면 추가
+            jsonArray = AttemptJSONRepair(jsonArray);
+
             // JSON 파싱
             var wrapper = JsonUtility.FromJson<AIDialogueWrapper>("{\"lines\":" + jsonArray + "}");
 
@@ -118,6 +121,57 @@ namespace IyagiAI.AISystem
             }
 
             return records;
+        }
+
+        /// <summary>
+        /// JSON 복구 시도: 불완전한 JSON 배열을 수정
+        /// </summary>
+        private static string AttemptJSONRepair(string jsonArray)
+        {
+            // 1. 기본 검증: 대괄호 균형 확인
+            int openBrackets = 0;
+            int closeBrackets = 0;
+            int openBraces = 0;
+            int closeBraces = 0;
+
+            foreach (char c in jsonArray)
+            {
+                if (c == '[') openBrackets++;
+                else if (c == ']') closeBrackets++;
+                else if (c == '{') openBraces++;
+                else if (c == '}') closeBraces++;
+            }
+
+            Debug.Log($"[JSON Repair] Brackets: [{openBrackets}] vs [{closeBrackets}], Braces: {{{openBraces}}} vs {{{closeBraces}}}");
+
+            // 2. 마지막 완성된 객체 찾기 (마지막 }를 찾음)
+            int lastCompleteBrace = jsonArray.LastIndexOf('}');
+
+            if (lastCompleteBrace == -1)
+            {
+                Debug.LogWarning("[JSON Repair] No complete object found, returning empty array");
+                return "[]";
+            }
+
+            // 3. 불완전한 부분 제거 (마지막 } 이후 버림)
+            string repairedJson = jsonArray.Substring(0, lastCompleteBrace + 1);
+
+            // 4. 배열 닫기 추가
+            if (!repairedJson.TrimEnd().EndsWith("]"))
+            {
+                repairedJson += "\n]";
+                Debug.Log("[JSON Repair] Added closing bracket ]");
+            }
+
+            // 5. 시작 대괄호 확인
+            if (!repairedJson.TrimStart().StartsWith("["))
+            {
+                repairedJson = "[\n" + repairedJson;
+                Debug.Log("[JSON Repair] Added opening bracket [");
+            }
+
+            Debug.Log($"[JSON Repair] Repaired JSON length: {repairedJson.Length} (original: {jsonArray.Length})");
+            return repairedJson;
         }
 
         // ===== AI JSON 스키마 =====

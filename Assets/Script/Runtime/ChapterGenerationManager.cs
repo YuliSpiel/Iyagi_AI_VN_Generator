@@ -168,11 +168,13 @@ Output ONLY a JSON array of dialogue lines in this exact format:
 ]
 
 Important:
-- Generate 20-30 dialogue lines for this chapter
-- Include 2-3 choice points that affect Core Values
+- Generate 10-15 dialogue lines for this chapter (MUST complete the JSON array properly)
+- Include 1-2 choice points that affect Core Values
 - Include 1 CG for the most dramatic/important moment
 - Use only available expressions and poses listed above
-- Output ONLY the JSON array, no other text";
+- Output ONLY the JSON array, no other text
+- CRITICAL: Ensure the JSON array is properly closed with ] at the end
+- Each object must end with a comma except the last one";
 
             return prompt;
         }
