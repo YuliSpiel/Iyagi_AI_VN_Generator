@@ -7,7 +7,7 @@ namespace IyagiAI.SetupWizard
 {
     /// <summary>
     /// Setup Wizard 테스트용 자동 완성
-    /// Option+Shift+Tab 키를 누르면 현재 스텝을 테스트 데이터로 자동 완성
+    /// Option+Shift+T 키를 누르면 현재 스텝을 테스트 데이터로 자동 완성
     /// </summary>
     public class SetupWizardAutoFill : MonoBehaviour
     {
@@ -19,11 +19,11 @@ namespace IyagiAI.SetupWizard
 
         private void Update()
         {
-            // Option+Shift+Tab: macOS는 LeftAlt = Option, Windows는 LeftAlt = Alt
+            // Option+Shift+T: macOS는 LeftAlt = Option, Windows는 LeftAlt = Alt
             if (enableAutoFill &&
                 Input.GetKey(KeyCode.LeftAlt) &&
                 Input.GetKey(KeyCode.LeftShift) &&
-                Input.GetKeyDown(KeyCode.Tab))
+                Input.GetKeyDown(KeyCode.T))
             {
                 AutoFillCurrentStep();
             }
