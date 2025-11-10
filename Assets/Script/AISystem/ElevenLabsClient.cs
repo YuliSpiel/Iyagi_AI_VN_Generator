@@ -98,40 +98,83 @@ namespace IyagiAI.AISystem
 
             if (request.result == UnityWebRequest.Result.Success)
             {
+                // MP3 바이너리 데이터를 AudioClip으로 변환
+                byte[] audioData = request.downloadHandler.data;
+
+                if (audioData == null || audioData.Length == 0)
+                {
+                    onError?.Invoke("Audio conversion error: No audio data received");
+                    yield break;
+                }
+
+                // Unity는 MP3를 직접 로드할 수 없으므로, 파일로 저장 후 로드
+                string tempPath = System.IO.Path.Combine(Application.temporaryCachePath, $"temp_audio_{System.Guid.NewGuid()}.mp3");
+
+                // 파일 저장 시도
+                bool fileSaved = false;
                 try
                 {
-                    // MP3 바이너리 데이터를 AudioClip으로 변환
-                    byte[] audioData = request.downloadHandler.data;
-
-                    // Unity는 MP3를 직접 로드할 수 없으므로, 파일로 저장 후 로드
-                    string tempPath = System.IO.Path.Combine(Application.temporaryCachePath, $"temp_audio_{System.Guid.NewGuid()}.mp3");
                     System.IO.File.WriteAllBytes(tempPath, audioData);
+                    fileSaved = true;
+                }
+                catch (System.Exception e)
+                {
+                    onError?.Invoke($"File save error: {e.Message}");
+                    yield break;
+                }
 
-                    // UnityWebRequest를 사용하여 MP3 로드
-                    UnityWebRequest audioRequest = UnityWebRequestMultimedia.GetAudioClip("file://" + tempPath, AudioType.MPEG);
-                    yield return audioRequest.SendWebRequest();
+                if (!fileSaved)
+                {
+                    onError?.Invoke("Failed to save temporary audio file");
+                    yield break;
+                }
 
-                    if (audioRequest.result == UnityWebRequest.Result.Success)
+                // UnityWebRequest를 사용하여 MP3 로드
+                UnityWebRequest audioRequest = UnityWebRequestMultimedia.GetAudioClip("file://" + tempPath, AudioType.MPEG);
+                yield return audioRequest.SendWebRequest();
+
+                if (audioRequest.result == UnityWebRequest.Result.Success)
+                {
+                    AudioClip clip = DownloadHandlerAudioClip.GetContent(audioRequest);
+                    if (clip != null)
                     {
-                        AudioClip clip = DownloadHandlerAudioClip.GetContent(audioRequest);
                         clip.name = description; // 설명을 클립 이름으로 설정
-
                         onSuccess?.Invoke(clip);
+                    }
+                    else
+                    {
+                        onError?.Invoke("Audio clip is null after loading");
+                    }
 
-                        // 임시 파일 삭제
+                    // 임시 파일 삭제
+                    try
+                    {
                         if (System.IO.File.Exists(tempPath))
                         {
                             System.IO.File.Delete(tempPath);
                         }
                     }
-                    else
+                    catch (System.Exception)
                     {
-                        onError?.Invoke($"Audio loading error: {audioRequest.error}");
+                        // 임시 파일 삭제 실패는 무시
                     }
                 }
-                catch (System.Exception e)
+                else
                 {
-                    onError?.Invoke($"Audio conversion error: {e.Message}");
+                    onError?.Invoke($"Audio loading error: {audioRequest.error}");
+
+                    // 임시 파일 삭제
+                    try
+                    {
+                        if (System.IO.File.Exists(tempPath))
+                        {
+                            System.IO.File.Delete(tempPath);
+                        }
+                    }
+                    catch (System.Exception)
+                    {
+                        // 임시 파일 삭제 실패는 무시
+                    }
                 }
             }
             else
