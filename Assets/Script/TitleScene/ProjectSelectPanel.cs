@@ -117,7 +117,7 @@ namespace IyagiAI.TitleScene
             var messageObj = new GameObject("EmptyMessage");
             messageObj.transform.SetParent(projectListContainer, false);
 
-            var text = messageObj.AddComponent<TMP_Text>();
+            var text = messageObj.AddComponent<TextMeshProUGUI>();
             text.text = "생성된 프로젝트가 없습니다.\n'New Game'으로 새 프로젝트를 만들어보세요!";
             text.fontSize = 24;
             text.alignment = TextAlignmentOptions.Center;
@@ -152,7 +152,7 @@ namespace IyagiAI.TitleScene
             // 3. Project Name Text
             GameObject nameObj = new GameObject("ProjectNameText");
             nameObj.transform.SetParent(projectItem.transform, false);
-            var nameText = nameObj.AddComponent<TMP_Text>();
+            var nameText = nameObj.AddComponent<TextMeshProUGUI>();
             nameText.text = "프로젝트 이름";
             nameText.fontSize = 24;
             nameText.fontStyle = FontStyles.Bold;
@@ -166,7 +166,7 @@ namespace IyagiAI.TitleScene
             // 4. Last Played Text
             GameObject lastPlayedObj = new GameObject("LastPlayedText");
             lastPlayedObj.transform.SetParent(projectItem.transform, false);
-            var lastPlayedText = lastPlayedObj.AddComponent<TMP_Text>();
+            var lastPlayedText = lastPlayedObj.AddComponent<TextMeshProUGUI>();
             lastPlayedText.text = "최근 플레이: 2025-01-10";
             lastPlayedText.fontSize = 14;
             lastPlayedText.color = new Color(0.7f, 0.7f, 0.7f, 1);
@@ -179,7 +179,7 @@ namespace IyagiAI.TitleScene
             // 5. Save Count Text
             GameObject saveCountObj = new GameObject("SaveCountText");
             saveCountObj.transform.SetParent(projectItem.transform, false);
-            var saveCountText = saveCountObj.AddComponent<TMP_Text>();
+            var saveCountText = saveCountObj.AddComponent<TextMeshProUGUI>();
             saveCountText.text = "1개의 저장 파일";
             saveCountText.fontSize = 14;
             saveCountText.color = new Color(0.7f, 0.7f, 0.7f, 1);
@@ -192,7 +192,7 @@ namespace IyagiAI.TitleScene
             // 6. Chapter Info Text
             GameObject chapterInfoObj = new GameObject("ChapterInfoText");
             chapterInfoObj.transform.SetParent(projectItem.transform, false);
-            var chapterInfoText = chapterInfoObj.AddComponent<TMP_Text>();
+            var chapterInfoText = chapterInfoObj.AddComponent<TextMeshProUGUI>();
             chapterInfoText.text = "3개 챕터";
             chapterInfoText.fontSize = 14;
             chapterInfoText.color = new Color(0.7f, 0.7f, 0.7f, 1);
@@ -216,7 +216,7 @@ namespace IyagiAI.TitleScene
 
             GameObject selectBtnTextObj = new GameObject("Text");
             selectBtnTextObj.transform.SetParent(selectBtnObj.transform, false);
-            var selectBtnText = selectBtnTextObj.AddComponent<TMP_Text>();
+            var selectBtnText = selectBtnTextObj.AddComponent<TextMeshProUGUI>();
             selectBtnText.text = "선택";
             selectBtnText.fontSize = 18;
             selectBtnText.alignment = TextAlignmentOptions.Center;
@@ -241,7 +241,7 @@ namespace IyagiAI.TitleScene
 
             GameObject cgBtnTextObj = new GameObject("Text");
             cgBtnTextObj.transform.SetParent(cgBtnObj.transform, false);
-            var cgBtnText = cgBtnTextObj.AddComponent<TMP_Text>();
+            var cgBtnText = cgBtnTextObj.AddComponent<TextMeshProUGUI>();
             cgBtnText.text = "CG";
             cgBtnText.fontSize = 18;
             cgBtnText.alignment = TextAlignmentOptions.Center;
@@ -266,7 +266,7 @@ namespace IyagiAI.TitleScene
 
             GameObject delBtnTextObj = new GameObject("Text");
             delBtnTextObj.transform.SetParent(delBtnObj.transform, false);
-            var delBtnText = delBtnTextObj.AddComponent<TMP_Text>();
+            var delBtnText = delBtnTextObj.AddComponent<TextMeshProUGUI>();
             delBtnText.text = "삭제";
             delBtnText.fontSize = 18;
             delBtnText.alignment = TextAlignmentOptions.Center;
