@@ -19,27 +19,43 @@ namespace IyagiAI.AISystem
         /// <returns>DialogueRecord 리스트</returns>
         public static List<Runtime.DialogueRecord> FromAIJson(string jsonResponse, int chapterId)
         {
-            // JSON 배열 추출 (Gemini 응답에서 [...] 부분만 추출)
-            int startIndex = jsonResponse.IndexOf('[');
-            int endIndex = jsonResponse.LastIndexOf(']');
+            AIDialogueWrapper wrapper = null;
 
-            if (startIndex == -1 || endIndex == -1 || endIndex <= startIndex)
+            try
             {
-                Debug.LogError("Invalid JSON format: No array found");
-                return new List<Runtime.DialogueRecord>();
+                // JSON 배열 추출 (Gemini 응답에서 [...] 부분만 추출)
+                int startIndex = jsonResponse.IndexOf('[');
+                int endIndex = jsonResponse.LastIndexOf(']');
+
+                if (startIndex == -1 || endIndex == -1 || endIndex <= startIndex)
+                {
+                    Debug.LogError("Invalid JSON format: No array found");
+                    Debug.LogError($"Response preview: {jsonResponse.Substring(0, Mathf.Min(500, jsonResponse.Length))}");
+                    return new List<Runtime.DialogueRecord>();
+                }
+
+                string jsonArray = jsonResponse.Substring(startIndex, endIndex - startIndex + 1);
+
+                // JSON 복구 시도: 닫는 괄호가 없으면 추가
+                jsonArray = AttemptJSONRepair(jsonArray);
+
+                // JSON 파싱
+                string wrappedJson = "{\"lines\":" + jsonArray + "}";
+                Debug.Log($"[AIDataConverter] Attempting to parse {wrappedJson.Length} chars of JSON");
+
+                wrapper = JsonUtility.FromJson<AIDialogueWrapper>(wrappedJson);
+
+                if (wrapper == null || wrapper.lines == null || wrapper.lines.Length == 0)
+                {
+                    Debug.LogError("Failed to parse JSON or empty lines");
+                    Debug.LogError($"Wrapped JSON preview: {wrappedJson.Substring(0, Mathf.Min(500, wrappedJson.Length))}");
+                    return new List<Runtime.DialogueRecord>();
+                }
             }
-
-            string jsonArray = jsonResponse.Substring(startIndex, endIndex - startIndex + 1);
-
-            // JSON 복구 시도: 닫는 괄호가 없으면 추가
-            jsonArray = AttemptJSONRepair(jsonArray);
-
-            // JSON 파싱
-            var wrapper = JsonUtility.FromJson<AIDialogueWrapper>("{\"lines\":" + jsonArray + "}");
-
-            if (wrapper == null || wrapper.lines == null || wrapper.lines.Length == 0)
+            catch (System.Exception e)
             {
-                Debug.LogError("Failed to parse JSON or empty lines");
+                Debug.LogError($"JSON parsing error: {e.Message}");
+                Debug.LogError($"Stack trace: {e.StackTrace}");
                 return new List<Runtime.DialogueRecord>();
             }
 
