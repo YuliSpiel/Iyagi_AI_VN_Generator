@@ -24,8 +24,30 @@ namespace IyagiAI.TitleScene
 
         private void OnEnable()
         {
+            Debug.Log("[ProjectSelectPanel] OnEnable called");
+
+            if (projectListContainer == null)
+            {
+                Debug.LogError("[ProjectSelectPanel] projectListContainer is null!");
+                return;
+            }
+
+            if (projectItemPrefab == null)
+            {
+                Debug.LogError("[ProjectSelectPanel] projectItemPrefab is null!");
+                return;
+            }
+
             LoadProjectList();
-            backButton.onClick.AddListener(OnBackClicked);
+
+            if (backButton != null)
+            {
+                backButton.onClick.AddListener(OnBackClicked);
+            }
+            else
+            {
+                Debug.LogWarning("[ProjectSelectPanel] backButton is null");
+            }
         }
 
         private void LoadProjectList()
@@ -60,12 +82,31 @@ namespace IyagiAI.TitleScene
 
         private void CreateProjectItem(ProjectSlot slot)
         {
+            if (projectItemPrefab == null)
+            {
+                Debug.LogError("[ProjectSelectPanel] Cannot create item - projectItemPrefab is null");
+                return;
+            }
+
+            if (projectListContainer == null)
+            {
+                Debug.LogError("[ProjectSelectPanel] Cannot create item - projectListContainer is null");
+                return;
+            }
+
             var item = Instantiate(projectItemPrefab, projectListContainer);
+            Debug.Log($"[ProjectSelectPanel] Instantiated project item: {item.name}");
+
             var itemUI = item.GetComponent<ProjectSlotItem>();
 
             if (itemUI != null)
             {
+                Debug.Log($"[ProjectSelectPanel] Setting up ProjectSlotItem for: {slot.projectName}");
                 itemUI.Setup(slot, sceneManager);
+            }
+            else
+            {
+                Debug.LogError($"[ProjectSelectPanel] ProjectSlotItem component not found on prefab!");
             }
         }
 
