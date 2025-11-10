@@ -33,9 +33,10 @@ namespace IyagiAI.SetupWizard
 High-quality anime illustration style with clean outlines and soft gradient shading.
 Large expressive eyes, natural lighting, smooth skin tone.
 Line art is thin and consistent, coloring uses soft airbrush-style highlights and shadows.
+Character appearance: {character.appearanceDescription}.
+IMPORTANT: The character's outfit and clothing MUST remain exactly the same across all expressions and poses. Only the facial expression and body pose should change.
 Pose: {poseDesc}.
-Expression: {expression}.
-Outfit: {character.appearanceDescription}.
+Expression: {expression} (only change facial expression, keep outfit identical).
 Background: transparent or solid white (no scenery).
 Camera angle: straight-on, waist-to-feet ratio realistic, overall balanced proportions.
 Resolution: 2048×4096.";
@@ -48,9 +49,10 @@ Resolution: 2048×4096.";
             return $@"A full-body standing sprite of a {gender} character for a Japanese-style visual novel.
 Same art style, same proportions, and same camera angle as the previous character.
 Thin clean line art, soft gradient anime shading, expressive eyes.
+Character appearance: {character.appearanceDescription}.
+IMPORTANT: The character's outfit and clothing MUST remain exactly the same across all expressions and poses. Only the facial expression and body pose should change.
 Pose: {poseDesc}.
-Expression: {expression}.
-Outfit: {character.appearanceDescription}.
+Expression: {expression} (only change facial expression, keep outfit identical).
 Background: transparent or solid white (no scenery).
 Resolution: 2048×4096.";
         }
