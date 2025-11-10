@@ -16,6 +16,10 @@ namespace IyagiAI.SetupWizard
         [Header("API Clients")]
         public GeminiClient geminiClient;
         public NanoBananaClient nanoBananaClient;
+        public ElevenLabsClient elevenLabsClient;
+
+        [Header("Managers")]
+        public ChapterGenerationManager chapterManager;
 
         [Header("Steps (UI Panels)")]
         public GameObject[] stepPanels; // Step1 ~ Step6 UI 패널
@@ -51,6 +55,22 @@ namespace IyagiAI.SetupWizard
 
             nanoBananaClient = gameObject.AddComponent<NanoBananaClient>();
             nanoBananaClient.Initialize(config.geminiApiKey); // Gemini API로 이미지도 생성
+
+            elevenLabsClient = gameObject.AddComponent<ElevenLabsClient>();
+            if (!string.IsNullOrEmpty(config.elevenLabsApiKey))
+            {
+                elevenLabsClient.Initialize(config.elevenLabsApiKey);
+            }
+            else
+            {
+                Debug.LogWarning("ElevenLabs API key not set. Audio generation will be skipped.");
+            }
+
+            // ChapterGenerationManager 초기화
+            chapterManager = gameObject.AddComponent<ChapterGenerationManager>();
+            chapterManager.projectData = projectData;
+            chapterManager.geminiClient = geminiClient;
+            chapterManager.nanoBananaClient = nanoBananaClient;
 
             // 첫 번째 스텝 표시
             ShowStep(0);
@@ -207,7 +227,7 @@ namespace IyagiAI.SetupWizard
         }
 
         /// <summary>
-        /// 위자드 완료 시 호출
+        /// 위자드 완료 시 호출 - 병렬 에셋 생성 포함 (Cycle 1-3)
         /// </summary>
         public void OnWizardComplete()
         {
@@ -251,13 +271,74 @@ namespace IyagiAI.SetupWizard
                 // 저장 파일 로드 (PlayerPrefs에 저장)
                 SaveDataManager.Instance.LoadSaveFile(newSaveFile.saveFileId);
 
-                // 게임 씬으로 전환
-                UnityEngine.SceneManagement.SceneManager.LoadScene("GameScene");
+                // ✅ [2025-01-10] 병렬 에셋 생성 시작
+                StartCoroutine(RunParallelAssetGeneration());
             }
             else
             {
                 Debug.LogError("Failed to create initial save file!");
             }
+        }
+
+        /// <summary>
+        /// 병렬 에셋 생성 실행 (Cycle 1-3)
+        /// </summary>
+        private System.Collections.IEnumerator RunParallelAssetGeneration()
+        {
+            Debug.Log("=== [ParallelAssetGeneration] 시작 ===");
+
+            // ParallelAssetGenerator 초기화
+            var generator = gameObject.AddComponent<ParallelAssetGenerator>();
+            generator.projectData = projectData;
+            generator.nanoBananaClient = nanoBananaClient;
+            generator.geminiClient = geminiClient;
+            generator.elevenLabsClient = elevenLabsClient;
+            generator.chapterManager = chapterManager;
+
+            string chapter1JSON = null;
+
+            // Cycle 1 & 2 병렬 실행 (0% → 50%)
+            yield return generator.RunCycle1And2Parallel(
+                (progress) => {
+                    Debug.Log($"[Progress] {(progress * 100):F0}%");
+                    // TODO: Step6 UI에 진행률 표시
+                },
+                (json) => {
+                    chapter1JSON = json;
+                    Debug.Log("[Barrier] Cycle 1 & 2 완료 (50%)");
+                },
+                () => {
+                    Debug.Log("[Barrier] 챕터1 JSON 준비 완료");
+                }
+            );
+
+            // 테스트 모드 확인
+            var autoFill = GetComponent<SetupWizardAutoFill>();
+            bool isTestMode = autoFill != null && autoFill.enableAutoFill;
+
+            if (isTestMode)
+            {
+                Debug.Log("[Test Mode] Cycle 3 스킵 - 에셋 생성 없이 GameScene 로드");
+            }
+            else
+            {
+                // Cycle 3: 에셋 생성 (50% → 100%)
+                yield return generator.RunCycle3(
+                    chapter1JSON,
+                    (progress) => {
+                        Debug.Log($"[Progress] {(progress * 100):F0}%");
+                        // TODO: Step6 UI에 진행률 표시
+                    },
+                    () => {
+                        Debug.Log("[Final Barrier] Cycle 3 완료 (100%)");
+                    }
+                );
+            }
+
+            Debug.Log("=== [ParallelAssetGeneration] 완료 ===");
+
+            // GameScene 로드
+            UnityEngine.SceneManagement.SceneManager.LoadScene("GameScene");
         }
     }
 }

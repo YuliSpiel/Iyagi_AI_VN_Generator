@@ -4704,7 +4704,7 @@ public class ParallelAssetGenerator : MonoBehaviour
 
 ---
 
-#### 5. SetupWizardManager.OnWizardComplete() 재작성 (예정)
+#### 5. SetupWizardManager.OnWizardComplete() 재작성 ✅
 
 **변경 전**:
 ```csharp
@@ -4718,45 +4718,199 @@ void OnWizardComplete()
 
 **변경 후**:
 ```csharp
-IEnumerator OnWizardComplete()
+public void OnWizardComplete()
 {
-    // Cycle 1 & 2 병렬 실행
-    yield return parallelGenerator.RunCycle1And2Parallel(projectData,
-        (progress) => UpdateProgressBar(progress),
-        () => Debug.Log("Barrier reached: 50%"));
+    // 캐릭터 에셋 저장
+    SaveCharacterAssets();
 
-    // Cycle 3: 에셋 생성
-    yield return parallelGenerator.RunCycle3(chapter1JSON,
-        (progress) => UpdateProgressBar(0.5f + progress * 0.5f),
-        () => Debug.Log("Complete: 100%"));
+    // SaveFile 생성
+    CreateSaveFile();
+
+    // ✅ 병렬 에셋 생성 시작
+    StartCoroutine(RunParallelAssetGeneration());
+}
+
+private IEnumerator RunParallelAssetGeneration()
+{
+    // ParallelAssetGenerator 초기화
+    var generator = gameObject.AddComponent<ParallelAssetGenerator>();
+    generator.projectData = projectData;
+    generator.nanoBananaClient = nanoBananaClient;
+    generator.geminiClient = geminiClient;
+    generator.elevenLabsClient = elevenLabsClient;
+    generator.chapterManager = chapterManager;
+
+    string chapter1JSON = null;
+
+    // Cycle 1 & 2 병렬 실행 (0% → 50%)
+    yield return generator.RunCycle1And2Parallel(
+        (progress) => Debug.Log($"[Progress] {progress * 100:F0}%"),
+        (json) => chapter1JSON = json,
+        () => Debug.Log("[Barrier] Cycle 1 & 2 완료")
+    );
+
+    // 테스트 모드 확인
+    var autoFill = GetComponent<SetupWizardAutoFill>();
+    bool isTestMode = autoFill != null && autoFill.enableAutoFill;
+
+    if (!isTestMode)
+    {
+        // Cycle 3: 에셋 생성 (50% → 100%)
+        yield return generator.RunCycle3(
+            chapter1JSON,
+            (progress) => Debug.Log($"[Progress] {progress * 100:F0}%"),
+            () => Debug.Log("[Final Barrier] Cycle 3 완료")
+        );
+    }
 
     // GameScene 로드
     SceneManager.LoadScene("GameScene");
 }
 ```
 
----
+**주요 변경사항**:
+- ✅ `OnWizardComplete()`에서 `StartCoroutine()` 호출
+- ✅ `RunParallelAssetGeneration()` 코루틴 추가
+- ✅ ParallelAssetGenerator 초기화 및 실행
+- ✅ 진행률 로그 출력 (TODO: UI 연동)
+- ✅ 테스트 모드 감지 및 Cycle 3 스킵 로직 포함
 
-#### 6. 테스트 모드 대응 (예정)
-
-**목적**: F5 AutoFill 테스트 시 Cycle 3 생성 스킵
-
-**감지 로직**:
+**API 클라이언트 추가**:
 ```csharp
-bool isTestMode = GetComponent<SetupWizardAutoFill>() != null;
+[Header("API Clients")]
+public GeminiClient geminiClient;
+public NanoBananaClient nanoBananaClient;
+public ElevenLabsClient elevenLabsClient;  // ✅ 추가
 
-if (isTestMode)
-{
-    Debug.Log("[Test Mode] Skipping Cycle 3 asset generation");
-    // Cycle 1 & 2만 실행
-}
-else
-{
-    // Cycle 1 & 2 & 3 모두 실행
-}
+[Header("Managers")]
+public ChapterGenerationManager chapterManager;  // ✅ 추가
 ```
 
 ---
 
+#### 6. 테스트 모드 대응 ✅
+
+**목적**: F5 AutoFill 테스트 시 Cycle 3 생성 스킵
+
+**구현 완료**:
+```csharp
+// SetupWizardManager.RunParallelAssetGeneration()
+var autoFill = GetComponent<SetupWizardAutoFill>();
+bool isTestMode = autoFill != null && autoFill.enableAutoFill;
+
+if (isTestMode)
+{
+    Debug.Log("[Test Mode] Cycle 3 스킵 - 에셋 생성 없이 GameScene 로드");
+    // Cycle 1 & 2만 실행 → 즉시 GameScene 로드
+}
+else
+{
+    // Cycle 1 & 2 & 3 모두 실행
+    yield return generator.RunCycle3(...);
+}
+```
+
+**효과**:
+- ✅ 테스트 모드에서 스탠딩 이미지만 생성 (배경/CG/BGM/SFX 생성 스킵)
+- ✅ Setup Wizard 테스트 속도 대폭 향상
+- ✅ 프로덕션 모드에서는 모든 에셋 생성
+
+---
+
+## 🎉 구현 완료 요약
+
+**모든 작업이 완료되었습니다! (6/6)**
+
+### ✅ 완료된 작업
+
+1. **Rate Limit & Retry 시스템** - GeminiClient, NanoBananaClient
+2. **ElevenLabs API 클라이언트** - BGM/SFX 생성
+3. **Step4/Step5 스탠딩 생성 제거** - Setup Wizard 속도 향상
+4. **ParallelAssetGenerator** - Fan-Out Barrier 패턴 구현
+5. **SetupWizardManager.OnWizardComplete()** - 병렬 구조로 재작성
+6. **테스트 모드 대응** - AutoFill 시 Cycle 3 스킵
+
+### 📊 아키텍처 플로우 (최종)
+
+```
+Setup Wizard (Step 1-6)
+    ↓
+Step6 "Create Project" 버튼 클릭
+    ↓
+OnWizardComplete()
+    ├─ SaveCharacterAssets()
+    ├─ CreateSaveFile()
+    └─ StartCoroutine(RunParallelAssetGeneration())
+        ↓
+    ┌─────────────────────────────────────────┐
+    │  ParallelAssetGenerator                 │
+    ├─────────────────────────────────────────┤
+    │  ┌─────────────┐  ┌──────────────┐     │
+    │  │  Cycle 1    │  │  Cycle 2     │     │
+    │  │  스탠딩 생성 │  │  챕터1 JSON  │     │
+    │  └─────────────┘  └──────────────┘     │
+    │         ↓                ↓              │
+    │         └─── BARRIER (50%) ───┘         │
+    │                  ↓                      │
+    │         ┌────────────────────┐          │
+    │         │ 테스트 모드?        │          │
+    │         └────────┬───────────┘          │
+    │            NO    │    YES               │
+    │         ┌────────┴─────┐                │
+    │         │              │                │
+    │    ┌────▼────┐    [Cycle 3 스킵]       │
+    │    │ Cycle 3 │                         │
+    │    │ 에셋 생성│                         │
+    │    └────┬────┘                         │
+    │         │                               │
+    │    FINAL BARRIER (100%)                │
+    └─────────┼───────────────────────────────┘
+              ↓
+    SceneManager.LoadScene("GameScene")
+```
+
+### 📝 변경된 파일 목록
+
+**신규 파일 (2개)**:
+- `Assets/Script/AISystem/ElevenLabsClient.cs` - BGM/SFX 생성
+- `Assets/Script/SetupWizard/ParallelAssetGenerator.cs` - 병렬 생성 관리자
+
+**수정된 파일 (5개)**:
+- `Assets/Script/AISystem/GeminiClient.cs` - Rate Limit & Retry 추가
+- `Assets/Script/AISystem/NanoBananaClient.cs` - Rate Limit & Retry 추가
+- `Assets/Script/SetupWizard/Step4_PlayerCharacter.cs` - 스탠딩 생성 제거
+- `Assets/Script/SetupWizard/Step5_NPCs.cs` - 스탠딩 생성 제거
+- `Assets/Script/SetupWizard/SetupWizardManager.cs` - 병렬 구조 통합
+
+### 🚀 성능 개선
+
+**Before (기존)**:
+- Step4 Confirm → 5개 스탠딩 생성 대기 (1-2분)
+- Step5 Confirm (NPC 1개) → 5개 스탠딩 생성 대기 (1-2분)
+- Step6 "Create Project" → 즉시 GameScene 로드
+- **총 대기 시간**: 캐릭터당 1-2분 × N명
+
+**After (개선)**:
+- Step4 Confirm → 즉시 Next (얼굴만 저장)
+- Step5 Confirm → 즉시 Next (얼굴만 저장)
+- Step6 "Create Project" → 병렬 생성 시작
+  - Cycle 1 & 2 병렬 (스탠딩 + 챕터1 JSON)
+  - Cycle 3 병렬 (배경/CG/BGM/SFX)
+- **총 대기 시간**: 프로젝트 생성 1회만 (병렬 처리로 단축)
+
+### 🧪 테스트 모드 지원
+
+**F5 AutoFill 테스트 시**:
+- ✅ Step4/Step5: 얼굴 프리뷰만 Stub 생성
+- ✅ Cycle 1 & 2: 정상 실행 (스탠딩 + 챕터1 JSON)
+- ✅ Cycle 3: **스킵** (배경/CG/BGM/SFX 생성 없음)
+- ✅ 즉시 GameScene 로드
+
+**프로덕션 모드**:
+- ✅ 모든 Cycle 실행 (Cycle 1-3)
+- ✅ 모든 에셋 생성 완료 후 GameScene 로드
+
+---
+
 **Last Updated**: 2025-01-10
-**Document Version**: 2.2 (Added Parallel Generation Architecture & Rate Limit Retry)
+**Document Version**: 2.3 (Parallel Generation Architecture - Implementation Complete)
