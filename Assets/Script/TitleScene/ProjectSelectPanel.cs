@@ -30,6 +30,8 @@ namespace IyagiAI.TitleScene
 
         private void LoadProjectList()
         {
+            Debug.Log("[ProjectSelectPanel] LoadProjectList called");
+
             // 기존 항목 삭제
             foreach (Transform child in projectListContainer)
             {
@@ -38,10 +40,12 @@ namespace IyagiAI.TitleScene
 
             // 모든 프로젝트 슬롯 로드
             var projectSlots = SaveDataManager.Instance.GetAllProjectSlots();
+            Debug.Log($"[ProjectSelectPanel] Loaded {projectSlots.Count} project slots");
 
             if (projectSlots.Count == 0)
             {
                 // 프로젝트가 없으면 안내 메시지
+                Debug.LogWarning("[ProjectSelectPanel] No projects found, showing empty message");
                 CreateEmptyMessage();
                 return;
             }
@@ -49,6 +53,7 @@ namespace IyagiAI.TitleScene
             // 프로젝트 아이템 생성
             foreach (var slot in projectSlots)
             {
+                Debug.Log($"[ProjectSelectPanel] Creating item for project: {slot.projectName}");
                 CreateProjectItem(slot);
             }
         }

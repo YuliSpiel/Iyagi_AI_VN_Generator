@@ -266,8 +266,11 @@ namespace IyagiAI.Runtime
 
         private void LoadAllProjectSlots()
         {
+            Debug.Log($"[SaveDataManager] Loading project slots from: {ProjectSlotsFile}");
+
             if (!File.Exists(ProjectSlotsFile))
             {
+                Debug.LogWarning($"[SaveDataManager] Project slots file not found: {ProjectSlotsFile}");
                 projectSlots = new List<ProjectSlot>();
                 return;
             }
@@ -275,12 +278,37 @@ namespace IyagiAI.Runtime
             try
             {
                 string json = File.ReadAllText(ProjectSlotsFile);
+                Debug.Log($"[SaveDataManager] Read JSON ({json.Length} chars):");
+                Debug.Log($"[SaveDataManager] JSON preview: {json.Substring(0, System.Math.Min(500, json.Length))}");
+
                 var wrapper = JsonUtility.FromJson<ProjectSlotListWrapper>(json);
-                projectSlots = wrapper.projects ?? new List<ProjectSlot>();
+
+                if (wrapper == null)
+                {
+                    Debug.LogError("[SaveDataManager] Failed to parse JSON wrapper - wrapper is null");
+                    projectSlots = new List<ProjectSlot>();
+                    return;
+                }
+
+                if (wrapper.projects == null)
+                {
+                    Debug.LogError("[SaveDataManager] wrapper.projects is null");
+                    projectSlots = new List<ProjectSlot>();
+                    return;
+                }
+
+                projectSlots = wrapper.projects;
+                Debug.Log($"[SaveDataManager] Successfully loaded {projectSlots.Count} project slots");
+
+                foreach (var slot in projectSlots)
+                {
+                    Debug.Log($"[SaveDataManager] - Project: {slot.projectName} (GUID: {slot.projectGuid})");
+                }
             }
             catch (Exception e)
             {
-                Debug.LogError($"Failed to load project slots: {e.Message}");
+                Debug.LogError($"[SaveDataManager] Failed to load project slots: {e.Message}");
+                Debug.LogError($"[SaveDataManager] Stack trace: {e.StackTrace}");
                 projectSlots = new List<ProjectSlot>();
             }
         }
