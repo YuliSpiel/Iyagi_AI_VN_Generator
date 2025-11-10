@@ -389,15 +389,17 @@ JSON 형식으로만 출력:
             character.personality = personalityInput.text;
             character.archetype = (Archetype)archetypeDropdown.value;
             character.confirmedSeed = faceGenerator.GetCurrentSeed();
-            character.facePreview = faceGenerator.GetCurrentPreview();
             character.resourcePath = $"Generated/Characters/{character.characterName}"; // Resources.Load 경로 설정
 
-            wizardManager.projectData.playerCharacter = character;
-
 #if UNITY_EDITOR
-            // 얼굴 프리뷰 저장
-            SaveFacePreview(character, previewImage.sprite.texture);
+            // 얼굴 프리뷰 파일로 저장 후 다시 로드하여 설정
+            SaveAndLoadFacePreview(character, faceGenerator.GetCurrentPreview().texture);
+#else
+            // 런타임에서는 메모리 상의 Sprite 그대로 사용
+            character.facePreview = faceGenerator.GetCurrentPreview();
 #endif
+
+            wizardManager.projectData.playerCharacter = character;
 
             // ✅ [2025-01-10] 스탠딩 생성을 OnWizardComplete()로 이동
             // 얼굴 프리뷰만 저장하고 즉시 다음 스텝 활성화
@@ -406,7 +408,7 @@ JSON 형식으로만 출력:
         }
 
 #if UNITY_EDITOR
-        private void SaveFacePreview(CharacterData character, Texture2D texture)
+        private void SaveAndLoadFacePreview(CharacterData character, Texture2D texture)
         {
             // 캐릭터별 폴더 생성
             string dir = $"Assets/Resources/Generated/Characters/{character.characterName}";
@@ -415,12 +417,26 @@ JSON 형식으로만 출력:
                 System.IO.Directory.CreateDirectory(dir);
             }
 
-            // 얼굴 프리뷰 저장
-            string path = $"{dir}/face_preview.png";
-            System.IO.File.WriteAllBytes(path, texture.EncodeToPNG());
+            // 얼굴 프리뷰 PNG 파일로 저장
+            string fullPath = $"{dir}/face_preview.png";
+            System.IO.File.WriteAllBytes(fullPath, texture.EncodeToPNG());
             UnityEditor.AssetDatabase.Refresh();
 
-            Debug.Log($"Face preview saved: {path}");
+            // 저장된 파일을 Sprite로 다시 로드
+            string resourcePath = $"{character.resourcePath}/face_preview";
+            Sprite loadedSprite = Resources.Load<Sprite>(resourcePath);
+
+            if (loadedSprite != null)
+            {
+                character.facePreview = loadedSprite;
+                Debug.Log($"Face preview saved and loaded: {fullPath}");
+            }
+            else
+            {
+                Debug.LogWarning($"Failed to load saved face preview from: {resourcePath}");
+                // 로드 실패 시 메모리 상의 Sprite 사용
+                character.facePreview = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+            }
         }
 #endif
 
