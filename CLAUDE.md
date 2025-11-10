@@ -4320,5 +4320,443 @@ else
 
 ---
 
+## 🔄 프로젝트 생성 아키텍처 변경 (2025-01-10)
+
+### 새로운 생성 플로우: Fan-Out Barrier 구조
+
+기존에는 Setup Wizard에서 캐릭터 Confirm 시 바로 스탠딩 이미지를 생성했지만, **프로젝트 생성 시점으로 이동하여 병렬 처리**합니다.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│             프로젝트 생성 (OnWizardComplete)                 │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌───────────────────────┐  ┌──────────────────────────┐   │
+│  │   Cycle 1 (필수)       │  │   Cycle 2 (필수)          │   │
+│  │  캐릭터 스탠딩 생성    │  │  챕터1 JSON 생성         │   │
+│  │  - Player: 5개        │  │  - Gemini API 호출       │   │
+│  │  - NPC들: 각 5개      │  │  - 대사/분기/선택지      │   │
+│  └───────────────────────┘  └──────────────────────────┘   │
+│              ↓                          ↓                   │
+│              └──────────── BARRIER ─────┘                   │
+│                           (50%)                             │
+│                             ↓                               │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │              Cycle 3 (필수)                         │    │
+│  │  챕터1 JSON 파싱 → 에셋 병렬 생성                   │    │
+│  │  - 배경 이미지 (2-3개)                              │    │
+│  │  - CG 일러스트 (1-2개)                              │    │
+│  │  - BGM (3-5개) via ElevenLabs API                  │    │
+│  │  - SFX (5-10개) via ElevenLabs API                 │    │
+│  └────────────────────────────────────────────────────┘    │
+│                             ↓                               │
+│                      FINAL BARRIER                          │
+│                          (100%)                             │
+│                             ↓                               │
+│                    GameScene 로드                            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 구현 변경사항
+
+#### 1. Rate Limit & Retry 시스템 추가 ✅
+
+**파일**: `GeminiClient.cs`, `NanoBananaClient.cs`
+
+**목적**: Gemini API Free Tier의 15 RPM 제한으로 인한 실패를 자동으로 복구
+
+**구현 내용**:
+```csharp
+// GeminiClient.cs
+[Header("Rate Limit Settings")]
+[SerializeField] private int maxRetryAttempts = 3;
+[SerializeField] private float retryDelaySeconds = 60f;
+
+public IEnumerator GenerateContent(string prompt, ...)
+{
+    yield return GenerateContentWithRetry(prompt, onSuccess, onError, 0);
+}
+
+private IEnumerator GenerateContentWithRetry(..., int attemptCount)
+{
+    // ... API 호출 ...
+
+    if (request.result != Success)
+    {
+        // Rate Limit 감지
+        bool isRateLimitError =
+            request.responseCode == 429 ||
+            errorResponse.Contains("rate limit") ||
+            errorResponse.Contains("RESOURCE_EXHAUSTED") ||
+            errorResponse.Contains("quota");
+
+        // 재시도 로직
+        if (isRateLimitError && attemptCount < maxRetryAttempts)
+        {
+            Debug.LogWarning($"Rate limit reached. Retry {attemptCount + 1}/{maxRetryAttempts} after {retryDelaySeconds}s...");
+            yield return new WaitForSeconds(retryDelaySeconds);
+            yield return GenerateContentWithRetry(..., attemptCount + 1);
+        }
+        else
+        {
+            onError?.Invoke(errorMsg);
+        }
+    }
+}
+```
+
+**적용 대상**:
+- ✅ `GeminiClient.GenerateContent()` - 텍스트 생성 (챕터 JSON)
+- ✅ `NanoBananaClient.GenerateImage()` - 이미지 생성 (스탠딩, 배경, CG)
+
+**테스트 방법**:
+1. API 키 Quota를 의도적으로 초과하여 429 에러 발생
+2. Console에 `[GeminiClient] Rate limit reached. Retry 1/3 after 60s...` 로그 확인
+3. 60초 대기 후 자동 재시도 확인
+4. 최대 3회 재시도 후 실패 시 에러 콜백 호출 확인
+
+---
+
+#### 2. Step4/Step5 스탠딩 생성 제거 ✅
+
+**변경 전**:
+- Step4 (Player) Confirm → 즉시 스탠딩 5개 생성
+- Step5 (NPC) Confirm → 즉시 스탠딩 5개 생성
+
+**변경 후**:
+- Step4/Step5 Confirm → 얼굴 프리뷰만 저장
+- 프로젝트 생성 시 → Cycle 1에서 모든 캐릭터 스탠딩 병렬 생성
+
+**구현 위치**: `Step4_PlayerCharacter.cs`, `Step5_NPCs.cs`
+
+**변경 내용** (Step4):
+```csharp
+// 기존 코드 (삭제됨)
+if (isTestMode)
+{
+    Debug.Log("[Test Mode] Skipping standing sprite generation");
+    nextStepButton.interactable = true;
+}
+else
+{
+    StartCoroutine(GenerateStandingSprites(character));
+}
+
+// 새 코드 (간소화)
+Debug.Log($"Player character confirmed: {character.characterName} (Face preview saved)");
+nextStepButton.interactable = true;
+```
+
+**변경 내용** (Step5):
+```csharp
+// 기존 코드 (삭제됨)
+if (isTestMode)
+{
+    Debug.Log("[Test Mode] Skipping standing sprite generation for NPC");
+    addAnotherButton.interactable = true;
+}
+else
+{
+    StartCoroutine(GenerateStandingSprites(npc));
+}
+
+// 새 코드 (간소화)
+Debug.Log($"NPC confirmed: {npc.characterName} (Face preview saved)");
+addAnotherButton.interactable = true;
+```
+
+**효과**:
+- ✅ Setup Wizard 단계 진행 속도 대폭 향상 (즉시 Confirm → Next)
+- ✅ 테스트 모드 감지 로직 불필요 (모든 모드에서 동일하게 동작)
+- ✅ `GenerateStandingSprites()` 메서드는 유지 (나중에 ParallelAssetGenerator에서 재사용)
+
+---
+
+#### 3. ElevenLabs API 클라이언트 추가 ✅
+
+**파일**: `Assets/Script/AISystem/ElevenLabsClient.cs` (신규)
+
+**목적**: BGM, SFX 오디오 생성
+
+**API 사양**:
+- **Endpoint**: `https://api.elevenlabs.io/v1/sound-generation`
+- **Method**: POST
+- **Headers**: `xi-api-key: {API_KEY}`
+- **Request Body**:
+```json
+{
+  "text": "epic battle music with orchestral drums",
+  "duration_seconds": 60,
+  "prompt_influence": 0.3
+}
+```
+- **Response**: MP3 바이너리
+
+**구현 완료**:
+```csharp
+public class ElevenLabsClient : MonoBehaviour
+{
+    [Header("Rate Limit Settings")]
+    [SerializeField] private int maxRetryAttempts = 3;
+    [SerializeField] private float retryDelaySeconds = 60f;
+
+    public IEnumerator GenerateBGM(
+        string description,
+        float durationSeconds,
+        System.Action<AudioClip> onSuccess,
+        System.Action<string> onError)
+    {
+        yield return GenerateSound(description, durationSeconds, onSuccess, onError, 0);
+    }
+
+    public IEnumerator GenerateSFX(
+        string description,
+        float durationSeconds = 5f,
+        System.Action<AudioClip> onSuccess = null,
+        System.Action<string> onError = null)
+    {
+        yield return GenerateSound(description, durationSeconds, onSuccess, onError, 0);
+    }
+
+    private IEnumerator GenerateSound(..., int attemptCount)
+    {
+        // API 호출
+        UnityWebRequest request = new UnityWebRequest(API_URL_SOUND_GENERATION, "POST");
+        request.SetRequestHeader("xi-api-key", apiKey);
+        // ...
+
+        if (request.result == Success)
+        {
+            // MP3 → AudioClip 변환 (임시 파일 사용)
+            byte[] audioData = request.downloadHandler.data;
+            string tempPath = Path.Combine(Application.temporaryCachePath, "temp_audio.mp3");
+            File.WriteAllBytes(tempPath, audioData);
+
+            UnityWebRequest audioRequest = UnityWebRequestMultimedia.GetAudioClip("file://" + tempPath, AudioType.MPEG);
+            yield return audioRequest.SendWebRequest();
+
+            AudioClip clip = DownloadHandlerAudioClip.GetContent(audioRequest);
+            onSuccess?.Invoke(clip);
+        }
+        else
+        {
+            // Rate Limit 재시도 로직 (GeminiClient와 동일)
+            if (isRateLimitError && attemptCount < maxRetryAttempts)
+            {
+                yield return new WaitForSeconds(retryDelaySeconds);
+                yield return GenerateSound(..., attemptCount + 1);
+            }
+        }
+    }
+}
+```
+
+**적용 대상**:
+- ✅ `GenerateBGM()` - 배경 음악 생성 (60초 기본)
+- ✅ `GenerateSFX()` - 효과음 생성 (5초 기본)
+- ✅ Rate Limit 자동 재시도 포함
+
+**Unity MP3 처리**:
+- Unity는 MP3를 직접 AudioClip으로 변환할 수 없음
+- 임시 파일로 저장 후 `UnityWebRequestMultimedia.GetAudioClip()` 사용
+- 변환 완료 후 임시 파일 삭제
+
+**APIConfigData 업데이트**:
+- ✅ `elevenLabsApiKey` 필드 이미 존재 (선택적)
+
+---
+
+#### 4. ParallelAssetGenerator 작성 ✅
+
+**파일**: `Assets/Script/SetupWizard/ParallelAssetGenerator.cs` (신규)
+
+**목적**: Fan-Out Barrier 패턴으로 병렬 작업 관리
+
+**구현 완료**:
+```csharp
+public class ParallelAssetGenerator : MonoBehaviour
+{
+    [Header("References")]
+    public VNProjectData projectData;
+    public NanoBananaClient nanoBananaClient;
+    public GeminiClient geminiClient;
+    public ElevenLabsClient elevenLabsClient;
+    public ChapterGenerationManager chapterManager;
+
+    /// <summary>
+    /// Cycle 1 & 2 병렬 실행 (50% 진행률)
+    /// </summary>
+    public IEnumerator RunCycle1And2Parallel(
+        System.Action<float> onProgress,
+        System.Action<string> onChapter1JSONReady,
+        System.Action onComplete)
+    {
+        bool cycle1Done = false;
+        bool cycle2Done = false;
+        string chapter1JSON = null;
+
+        // Cycle 1: 모든 캐릭터 스탠딩 생성
+        StartCoroutine(GenerateAllStandingSprites(() => {
+            cycle1Done = true;
+            onProgress?.Invoke(0.25f);
+        }));
+
+        // Cycle 2: 챕터1 JSON 생성
+        StartCoroutine(GenerateChapter1JSON((json) => {
+            chapter1JSON = json;
+            cycle2Done = true;
+            onProgress?.Invoke(0.5f);
+        }));
+
+        // Barrier: Cycle 1 & 2 완료 대기
+        yield return new WaitUntil(() => cycle1Done && cycle2Done);
+
+        onChapter1JSONReady?.Invoke(chapter1JSON);
+        onComplete?.Invoke();
+    }
+
+    /// <summary>
+    /// Cycle 3: 챕터1 JSON 파싱 → 에셋 병렬 생성 (50% → 100%)
+    /// </summary>
+    public IEnumerator RunCycle3(
+        string chapter1JSON,
+        System.Action<float> onProgress,
+        System.Action onComplete)
+    {
+        var assetList = ParseChapter1Assets(chapter1JSON);
+
+        // 배경, CG, BGM, SFX 병렬 생성
+        foreach (var bgName in assetList.backgrounds)
+        {
+            StartCoroutine(GenerateBackground(bgName, () => { /* progress */ }));
+        }
+
+        foreach (var cgDesc in assetList.cgs)
+        {
+            StartCoroutine(GenerateCG(cgDesc, () => { /* progress */ }));
+        }
+
+        foreach (var bgmName in assetList.bgmNames)
+        {
+            StartCoroutine(GenerateBGM(bgmName, () => { /* progress */ }));
+        }
+
+        foreach (var sfxName in assetList.sfxNames)
+        {
+            StartCoroutine(GenerateSFX(sfxName, () => { /* progress */ }));
+        }
+
+        // Final Barrier: 모든 에셋 생성 완료 대기
+        yield return new WaitUntil(() => completedTasks == totalAssets);
+
+        onComplete?.Invoke();
+    }
+
+    private IEnumerator GenerateAllStandingSprites(System.Action onComplete)
+    {
+        // Player + NPCs 모두 처리
+        List<CharacterData> allCharacters = GetAllCharacters();
+
+        for (int i = 0; i < allCharacters.Count; i++)
+        {
+            var generator = gameObject.AddComponent<StandingSpriteGenerator>();
+            bool isFirst = (i == 0);
+
+            bool charComplete = false;
+            yield return generator.GenerateStandingSet(
+                allCharacters[i],
+                nanoBananaClient,
+                isFirst,
+                () => charComplete = true
+            );
+
+            yield return new WaitUntil(() => charComplete);
+        }
+
+        onComplete?.Invoke();
+    }
+
+    private AssetList ParseChapter1Assets(string chapter1JSON)
+    {
+        // JSON 파싱하여 필요한 배경/CG/BGM/SFX 목록 추출
+        // DialogueRecord의 Background, CG_ID, bgm_name, sfx_name 필드 사용
+        // ...
+    }
+}
+```
+
+**주요 기능**:
+- ✅ `RunCycle1And2Parallel()` - Cycle 1 & 2 병렬 실행 및 Barrier
+- ✅ `RunCycle3()` - 챕터1 JSON 파싱 → 에셋 병렬 생성
+- ✅ `GenerateAllStandingSprites()` - 모든 캐릭터 스탠딩 순차 생성
+- ✅ `ParseChapter1Assets()` - JSON에서 에셋 목록 추출
+- ✅ `GenerateBackground()`, `GenerateCG()`, `GenerateBGM()`, `GenerateSFX()` - 개별 에셋 생성 및 저장
+
+**에셋 저장 경로**:
+- 배경: `Assets/Resources/Image/Background/{bgName}.png`
+- CG: `Assets/Resources/Image/CG/{cgId}.png`
+- BGM: `Assets/Resources/Sound/BGM/{bgmName}.wav`
+- SFX: `Assets/Resources/Sound/SFX/{sfxName}.wav`
+
+**참고**:
+- AudioClip → WAV 파일 저장은 별도 인코더 라이브러리 필요 (TODO)
+- 현재는 placeholder로 경고 로그만 출력
+
+---
+
+#### 5. SetupWizardManager.OnWizardComplete() 재작성 (예정)
+
+**변경 전**:
+```csharp
+void OnWizardComplete()
+{
+    SaveCharacterAssets();
+    CreateSaveFile();
+    SceneManager.LoadScene("GameScene"); // 즉시 로드
+}
+```
+
+**변경 후**:
+```csharp
+IEnumerator OnWizardComplete()
+{
+    // Cycle 1 & 2 병렬 실행
+    yield return parallelGenerator.RunCycle1And2Parallel(projectData,
+        (progress) => UpdateProgressBar(progress),
+        () => Debug.Log("Barrier reached: 50%"));
+
+    // Cycle 3: 에셋 생성
+    yield return parallelGenerator.RunCycle3(chapter1JSON,
+        (progress) => UpdateProgressBar(0.5f + progress * 0.5f),
+        () => Debug.Log("Complete: 100%"));
+
+    // GameScene 로드
+    SceneManager.LoadScene("GameScene");
+}
+```
+
+---
+
+#### 6. 테스트 모드 대응 (예정)
+
+**목적**: F5 AutoFill 테스트 시 Cycle 3 생성 스킵
+
+**감지 로직**:
+```csharp
+bool isTestMode = GetComponent<SetupWizardAutoFill>() != null;
+
+if (isTestMode)
+{
+    Debug.Log("[Test Mode] Skipping Cycle 3 asset generation");
+    // Cycle 1 & 2만 실행
+}
+else
+{
+    // Cycle 1 & 2 & 3 모두 실행
+}
+```
+
+---
+
 **Last Updated**: 2025-01-10
-**Document Version**: 2.1 (Added Development Tools & Automation)
+**Document Version**: 2.2 (Added Parallel Generation Architecture & Rate Limit Retry)

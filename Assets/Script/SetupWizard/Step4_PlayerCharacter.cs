@@ -399,21 +399,10 @@ JSON 형식으로만 출력:
             SaveFacePreview(character, previewImage.sprite.texture);
 #endif
 
-            // 테스트 모드 확인 (AutoFill 컴포넌트 존재 여부로 판단)
-            var autoFill = wizardManager.GetComponent<SetupWizardAutoFill>();
-            bool isTestMode = autoFill != null && autoFill.enableAutoFill;
-
-            if (isTestMode)
-            {
-                // 테스트 모드: 스탠딩 이미지 생성 스킵
-                Debug.Log("[Test Mode] Skipping standing sprite generation");
-                nextStepButton.interactable = true;
-            }
-            else
-            {
-                // 일반 모드: 스탠딩 5종 자동 생성
-                StartCoroutine(GenerateStandingSprites(character));
-            }
+            // ✅ [2025-01-10] 스탠딩 생성을 OnWizardComplete()로 이동
+            // 얼굴 프리뷰만 저장하고 즉시 다음 스텝 활성화
+            Debug.Log($"Player character confirmed: {character.characterName} (Face preview saved)");
+            nextStepButton.interactable = true;
         }
 
 #if UNITY_EDITOR
