@@ -35,16 +35,31 @@ public class TitleSceneSetupHelper : EditorWindow
         TitleSceneManager manager = managerObj.AddComponent<TitleSceneManager>();
 
         // 패널들 생성
+        Debug.Log("Creating TitlePanel...");
         GameObject titlePanel = CreateTitlePanel(canvas.transform, manager);
-        GameObject projectSelectPanel = CreateProjectSelectPanel(canvas.transform, manager);
-        GameObject saveFileSelectPanel = CreateSaveFileSelectPanel(canvas.transform, manager);
-        GameObject cgCollectionPanel = CreateCGCollectionPanel(canvas.transform, manager);
+        Debug.Log($"TitlePanel created: {titlePanel != null}");
 
-        // Manager에 패널 연결
+        Debug.Log("Creating ProjectSelectPanel...");
+        GameObject projectSelectPanel = CreateProjectSelectPanel(canvas.transform, manager);
+        Debug.Log($"ProjectSelectPanel created: {projectSelectPanel != null}");
+
+        Debug.Log("Creating SaveFileSelectPanel...");
+        GameObject saveFileSelectPanel = CreateSaveFileSelectPanel(canvas.transform, manager);
+        Debug.Log($"SaveFileSelectPanel created: {saveFileSelectPanel != null}");
+
+        Debug.Log("Creating CGCollectionPanel...");
+        GameObject cgCollectionPanel = CreateCGCollectionPanel(canvas.transform, manager);
+        Debug.Log($"CGCollectionPanel created: {cgCollectionPanel != null}");
+
+        // Manager에 패널 연결 (Undo 시스템 사용)
+        Undo.RecordObject(manager, "Set TitleSceneManager panel references");
         manager.titlePanel = titlePanel;
         manager.projectSelectPanel = projectSelectPanel;
         manager.saveFileSelectPanel = saveFileSelectPanel;
         manager.cgCollectionPanel = cgCollectionPanel;
+
+        // 씬을 더티로 마킹
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
 
         // 씬 저장
         string scenePath = "Assets/Scenes/TitleScene.unity";
@@ -57,6 +72,11 @@ public class TitleSceneSetupHelper : EditorWindow
 
         Debug.Log("✅ TitleScene created successfully!");
         Debug.Log($"Scene saved at: {scenePath}");
+        Debug.Log("Manager panel references:");
+        Debug.Log($"  - titlePanel: {manager.titlePanel != null}");
+        Debug.Log($"  - projectSelectPanel: {manager.projectSelectPanel != null}");
+        Debug.Log($"  - saveFileSelectPanel: {manager.saveFileSelectPanel != null}");
+        Debug.Log($"  - cgCollectionPanel: {manager.cgCollectionPanel != null}");
     }
 
     // ===== TitlePanel =====
@@ -498,7 +518,7 @@ public class TitleSceneSetupHelper : EditorWindow
         // Item Background
         GameObject itemBgObj = new GameObject("Item Background");
         itemBgObj.transform.SetParent(item.transform, false);
-        var itemBgRect = itemBgObj.GetComponent<RectTransform>();
+        var itemBgRect = itemBgObj.AddComponent<RectTransform>();
         itemBgRect.anchorMin = Vector2.zero;
         itemBgRect.anchorMax = Vector2.one;
         itemBgRect.sizeDelta = Vector2.zero;
@@ -508,7 +528,7 @@ public class TitleSceneSetupHelper : EditorWindow
         // Item Checkmark
         GameObject checkmark = new GameObject("Item Checkmark");
         checkmark.transform.SetParent(item.transform, false);
-        var checkmarkRect = checkmark.GetComponent<RectTransform>();
+        var checkmarkRect = checkmark.AddComponent<RectTransform>();
         checkmarkRect.anchorMin = Vector2.zero;
         checkmarkRect.anchorMax = new Vector2(0, 1);
         checkmarkRect.sizeDelta = new Vector2(20, 0);
@@ -518,7 +538,7 @@ public class TitleSceneSetupHelper : EditorWindow
         // Item Label
         GameObject itemLabel = new GameObject("Item Label");
         itemLabel.transform.SetParent(item.transform, false);
-        var itemLabelRect = itemLabel.GetComponent<RectTransform>();
+        var itemLabelRect = itemLabel.AddComponent<RectTransform>();
         itemLabelRect.anchorMin = Vector2.zero;
         itemLabelRect.anchorMax = Vector2.one;
         itemLabelRect.offsetMin = new Vector2(25, 1);

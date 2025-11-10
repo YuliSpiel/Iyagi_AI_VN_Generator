@@ -118,18 +118,27 @@ Resolution: 2048×4096.";
 
                 if (result != null)
                 {
+                    // 배경 제거 처리
+                    Texture2D finalTexture = result;
+
+#if UNITY_EDITOR
+                    yield return RemoveBackgroundAndSave(character.characterName, key, result, (processedTexture) =>
+                    {
+                        if (processedTexture != null)
+                        {
+                            finalTexture = processedTexture;
+                        }
+                    });
+#endif
+
                     Sprite sprite = Sprite.Create(
-                        result,
-                        new Rect(0, 0, result.width, result.height),
+                        finalTexture,
+                        new Rect(0, 0, finalTexture.width, finalTexture.height),
                         new Vector2(0.5f, 0.5f)
                     );
 
                     character.standingSprites[key] = sprite;
                     Debug.Log($"[{currentIndex}/{expressions.Length}] Successfully created sprite for {key}");
-
-#if UNITY_EDITOR
-                    SaveSpriteToResources(character.characterName, key, result);
-#endif
                 }
                 else
                 {
@@ -192,9 +201,22 @@ Resolution: 2048×4096.";
             Sprite sprite = null;
             if (result != null)
             {
+                // 배경 제거 처리
+                Texture2D finalTexture = result;
+
+#if UNITY_EDITOR
+                yield return RemoveBackgroundAndSave(character.characterName, key, result, (processedTexture) =>
+                {
+                    if (processedTexture != null)
+                    {
+                        finalTexture = processedTexture;
+                    }
+                });
+#endif
+
                 sprite = Sprite.Create(
-                    result,
-                    new Rect(0, 0, result.width, result.height),
+                    finalTexture,
+                    new Rect(0, 0, finalTexture.width, finalTexture.height),
                     new Vector2(0.5f, 0.5f)
                 );
 
@@ -209,16 +231,84 @@ Resolution: 2048×4096.";
         }
 
 #if UNITY_EDITOR
-        private void SaveSpriteToResources(string charName, string key, Texture2D texture)
+        /// <summary>
+        /// 배경 제거 후 저장
+        /// </summary>
+        private IEnumerator RemoveBackgroundAndSave(string charName, string key, Texture2D originalTexture, System.Action<Texture2D> onComplete)
         {
-            // 캐릭터별 폴더: Assets/Resources/Generated/Characters/{CharName}/
+            // 캐릭터별 폴더 생성
             string dir = $"Assets/Resources/Generated/Characters/{charName}";
             if (!System.IO.Directory.Exists(dir))
             {
                 System.IO.Directory.CreateDirectory(dir);
             }
 
-            // 파일명: {expression}_{pose}.png (예: happy_normal.png)
+            // 임시 파일 경로 (배경 제거 전)
+            string tempInputPath = System.IO.Path.Combine(UnityEngine.Application.temporaryCachePath, $"{charName}_{key}_input.png");
+            string tempOutputPath = System.IO.Path.Combine(UnityEngine.Application.temporaryCachePath, $"{charName}_{key}_output.png");
+
+            // 원본 이미지 임시 저장
+            System.IO.File.WriteAllBytes(tempInputPath, originalTexture.EncodeToPNG());
+            Debug.Log($"[BackgroundRemoval] Saved temp input: {tempInputPath}");
+
+            // 배경 제거 실행
+            bool bgRemovalSuccess = false;
+            yield return BackgroundRemover.RemoveBackground(tempInputPath, tempOutputPath, (success) =>
+            {
+                bgRemovalSuccess = success;
+            });
+
+            Texture2D resultTexture = originalTexture;
+
+            if (bgRemovalSuccess && System.IO.File.Exists(tempOutputPath))
+            {
+                // 배경 제거된 이미지 로드
+                byte[] pngData = System.IO.File.ReadAllBytes(tempOutputPath);
+                Texture2D processedTexture = new Texture2D(2, 2);
+                if (processedTexture.LoadImage(pngData))
+                {
+                    resultTexture = processedTexture;
+                    Debug.Log($"[BackgroundRemoval] Successfully loaded background-removed image");
+                }
+                else
+                {
+                    Debug.LogWarning($"[BackgroundRemoval] Failed to load processed image, using original");
+                }
+
+                // 임시 파일 삭제
+                System.IO.File.Delete(tempOutputPath);
+            }
+            else
+            {
+                Debug.LogWarning($"[BackgroundRemoval] Background removal failed, using original image");
+            }
+
+            // 최종 이미지 저장 (Resources 폴더)
+            string finalPath = $"{dir}/{key}.png";
+            System.IO.File.WriteAllBytes(finalPath, resultTexture.EncodeToPNG());
+            UnityEditor.AssetDatabase.Refresh();
+
+            Debug.Log($"Sprite saved: {finalPath}");
+
+            // 임시 입력 파일 삭제
+            if (System.IO.File.Exists(tempInputPath))
+            {
+                System.IO.File.Delete(tempInputPath);
+            }
+
+            onComplete?.Invoke(resultTexture);
+        }
+
+        private void SaveSpriteToResources(string charName, string key, Texture2D texture)
+        {
+            // 이 메서드는 더 이상 직접 호출되지 않음 (RemoveBackgroundAndSave가 대체)
+            // 하위 호환성을 위해 유지
+            string dir = $"Assets/Resources/Generated/Characters/{charName}";
+            if (!System.IO.Directory.Exists(dir))
+            {
+                System.IO.Directory.CreateDirectory(dir);
+            }
+
             string path = $"{dir}/{key}.png";
             System.IO.File.WriteAllBytes(path, texture.EncodeToPNG());
             UnityEditor.AssetDatabase.Refresh();

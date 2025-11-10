@@ -60,17 +60,21 @@ namespace IyagiAI.Editor
             projectData.npcs.Add(npc1);
 
             // 4. 폴더 생성
-            string projectFolder = "Assets/Resources/VNProjects/DummyProject";
+            string projectFolder = "Assets/Resources/Projects";
             if (!System.IO.Directory.Exists(projectFolder))
             {
                 System.IO.Directory.CreateDirectory(projectFolder);
             }
 
-            // 5. ScriptableObject 저장
+            // 5. ScriptableObject 저장 (캐릭터를 Sub-asset으로 추가)
             AssetDatabase.CreateAsset(projectData, $"{projectFolder}/DummyProject.asset");
-            AssetDatabase.CreateAsset(player, $"{projectFolder}/Player.asset");
-            AssetDatabase.CreateAsset(npc1, $"{projectFolder}/NPC_FriendA.asset");
+
+            // 캐릭터를 프로젝트 에셋의 Sub-asset으로 추가
+            AssetDatabase.AddObjectToAsset(player, projectData);
+            AssetDatabase.AddObjectToAsset(npc1, projectData);
+
             AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
 
             // 6. SaveDataManager 데이터를 직접 JSON으로 생성
             string saveFolder = System.IO.Path.Combine(UnityEngine.Application.persistentDataPath, "Saves");
@@ -271,11 +275,14 @@ namespace IyagiAI.Editor
             record4.Fields["Choice1_ENG"] = "운동장에서 놀자";
             record4.Fields["Next1"] = "1004";
             record4.Fields["Choice1_ValueImpact_우정"] = "10";
+            record4.Fields["Choice1_SkillImpact_공감"] = "5";
+            record4.Fields["Choice1_SkillImpact_협력"] = "8";
 
             // 선택지 2
             record4.Fields["Choice2_ENG"] = "도서관에 가자";
             record4.Fields["Next2"] = "1005";
             record4.Fields["Choice2_ValueImpact_우정"] = "5";
+            record4.Fields["Choice2_SkillImpact_신뢰"] = "6";
 
             record4.FinalizeIndex();
             records.Add(record4);

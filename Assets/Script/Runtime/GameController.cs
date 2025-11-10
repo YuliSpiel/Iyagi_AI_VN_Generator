@@ -126,6 +126,18 @@ namespace IyagiAI.Runtime
                     if (value != null && !string.IsNullOrEmpty(value.name))
                     {
                         currentState.coreValueScores[value.name] = 0;
+
+                        // Derived Skills 초기화
+                        if (value.derivedSkills != null)
+                        {
+                            foreach (var skill in value.derivedSkills)
+                            {
+                                if (!string.IsNullOrEmpty(skill))
+                                {
+                                    currentState.skillScores[skill] = 0;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -142,7 +154,7 @@ namespace IyagiAI.Runtime
                 }
             }
 
-            Debug.Log($"Game state initialized: {currentState.coreValueScores.Count} core values, {currentState.characterAffections.Count} NPCs");
+            Debug.Log($"Game state initialized: {currentState.coreValueScores.Count} core values, {currentState.skillScores.Count} skills, {currentState.characterAffections.Count} NPCs");
         }
 
         /// <summary>
@@ -186,12 +198,23 @@ namespace IyagiAI.Runtime
         /// </summary>
         void ShowCurrentLine()
         {
+            Debug.Log($"[GameController] ShowCurrentLine called. Records null? {currentChapterRecords == null}, Index: {currentLineIndex}");
+
             if (currentChapterRecords == null || currentLineIndex >= currentChapterRecords.Count)
             {
+                Debug.LogWarning($"[GameController] Cannot show line - records null or index out of range");
                 return;
             }
 
             var currentLine = currentChapterRecords[currentLineIndex];
+            string lineText = currentLine.GetString("ParsedLine_ENG");
+            Debug.Log($"[GameController] Displaying line {currentLineIndex}: {lineText}");
+
+            if (dialogueUI == null)
+            {
+                Debug.LogError("[GameController] DialogueUI is NULL! Cannot display dialogue.");
+                return;
+            }
 
             // DialogueUI에 표시 (선택지 콜백 포함)
             dialogueUI.DisplayRecord(currentLine, OnDialogueAction);
@@ -262,6 +285,26 @@ namespace IyagiAI.Runtime
                 {
                     currentState.coreValueScores[value.name] += change;
                     Debug.Log($"{value.name} changed by {change} (now: {currentState.coreValueScores[value.name]})");
+                }
+            }
+
+            // Skill Impact 처리 (파생 스킬)
+            foreach (var value in projectData.coreValues)
+            {
+                if (value.derivedSkills != null)
+                {
+                    foreach (var skill in value.derivedSkills)
+                    {
+                        string skillImpactKey = $"Choice{choiceIndex + 1}_SkillImpact_{skill}";
+                        if (currentLine.Has(skillImpactKey) && currentLine.TryGetInt(skillImpactKey, out int skillChange))
+                        {
+                            if (currentState.skillScores.ContainsKey(skill))
+                            {
+                                currentState.skillScores[skill] += skillChange;
+                                Debug.Log($"Skill '{skill}' changed by {skillChange} (now: {currentState.skillScores[skill]})");
+                            }
+                        }
+                    }
                 }
             }
 

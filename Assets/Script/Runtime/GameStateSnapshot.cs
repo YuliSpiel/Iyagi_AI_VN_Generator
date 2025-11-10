@@ -16,6 +16,9 @@ namespace IyagiAI.Runtime
         // Core Value 점수 (예: {"Courage": 30, "Wisdom": 50})
         public Dictionary<string, int> coreValueScores = new Dictionary<string, int>();
 
+        // Derived Skill 점수 (예: {"자긍심": 20, "공감능력": 35, "판단력": 15})
+        public Dictionary<string, int> skillScores = new Dictionary<string, int>();
+
         // 캐릭터 호감도 (예: {"NPC1": 70, "NPC2": 30})
         public Dictionary<string, int> characterAffections = new Dictionary<string, int>();
 
@@ -44,6 +47,16 @@ namespace IyagiAI.Runtime
             {
                 sb.Append("Core Values: ");
                 foreach (var kv in coreValueScores)
+                {
+                    sb.Append($"{kv.Key}={kv.Value}, ");
+                }
+                sb.AppendLine();
+            }
+
+            if (skillScores != null && skillScores.Count > 0)
+            {
+                sb.Append("Skills: ");
+                foreach (var kv in skillScores)
                 {
                     sb.Append($"{kv.Key}={kv.Value}, ");
                 }

@@ -66,7 +66,7 @@ namespace IyagiAI.SetupWizard
             if (step1 == null) return;
 
             step1.titleInput.text = "테스트 프로젝트 " + System.DateTime.Now.ToString("HHmmss");
-            step1.premiseInput.text = "평범한 학생이 갑자기 판타지 세계로 떨어지면서 시작되는 모험 이야기. 동료들과 함께 세계를 구하는 여정을 떠난다.";
+            step1.premiseInput.text = "세계의 훌륭한 음악가들이 작은 바다마을에서 콩쿠르에 참가한다. 시기와 질투, 협력과 로맨스. 청춘과 음악의 향연이 펼쳐진다.";
             step1.genreDropdown.value = (int)Genre.Fantasy;
             step1.toneDropdown.value = (int)Tone.Lighthearted;
             step1.playtimeDropdown.value = (int)PlaytimeEstimate.Hour1;
@@ -80,12 +80,12 @@ namespace IyagiAI.SetupWizard
             var step2 = panel.GetComponent<Step2_CoreValues>();
             if (step2 == null) return;
 
-            step2.value1NameInput.text = "용기";
-            step2.value1SkillsInput.text = "검술, 방어, 돌격";
-            step2.value2NameInput.text = "지혜";
-            step2.value2SkillsInput.text = "마법, 분석, 전략";
+            step2.value1NameInput.text = "음악성";
+            step2.value1SkillsInput.text = "지능, 예술성, 테크닉";
+            step2.value2NameInput.text = "성취욕";
+            step2.value2SkillsInput.text = "집중력, 분석, 전략";
             step2.value3NameInput.text = "우정";
-            step2.value3SkillsInput.text = "협동, 설득, 치유";
+            step2.value3SkillsInput.text = "협동, 설득, 매력";
 
             Debug.Log("[AutoFill] Step 2 filled with 3 core values. Press Next to continue.");
         }
@@ -107,13 +107,13 @@ namespace IyagiAI.SetupWizard
             var step4 = panel.GetComponent<Step4_PlayerCharacter>();
             if (step4 == null) yield break;
 
-            step4.nameInput.text = "주인공";
-            step4.ageInput.text = "18";
+            step4.nameInput.text = "이시혁";
+            step4.ageInput.text = "25";
             step4.genderDropdown.value = (int)Gender.Male;
             step4.povDropdown.value = (int)POV.FirstPerson;
             step4.archetypeDropdown.value = (int)Archetype.Hero;
-            step4.appearanceInput.text = "검은 머리에 갈색 눈을 가진 평범한 외모의 청년";
-            step4.personalityInput.text = "정의감이 강하고 친구를 소중히 여기는 성격";
+            step4.appearanceInput.text = "검은 머리에 갈색 눈을 가진 날카로운 외모의 청년";
+            step4.personalityInput.text = "성취욕이 크고 지능적인 성격";
 
             // Stub 얼굴 이미지 생성
             yield return CreateStubFaceImage(step4.faceGenerator);
@@ -130,12 +130,12 @@ namespace IyagiAI.SetupWizard
             var step5 = panel.GetComponent<Step5_NPCs>();
             if (step5 == null) yield break;
 
-            step5.nameInput.text = "테스트 NPC";
-            step5.ageInput.text = "20";
+            step5.nameInput.text = "유해리";
+            step5.ageInput.text = "23";
             step5.genderDropdown.value = (int)Gender.Female;
             step5.archetypeDropdown.value = (int)Archetype.Strategist;
             step5.roleInput.text = "친구";
-            step5.appearanceInput.text = "긴 금발 머리와 파란 눈을 가진 아름다운 여성";
+            step5.appearanceInput.text = "긴 갈색 머리와 검은 눈을 가진 아름다운 여성";
             step5.personalityInput.text = "똑똑하고 신중한 성격";
             step5.romanceableToggle.isOn = true;
 

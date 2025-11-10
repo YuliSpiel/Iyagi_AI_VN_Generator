@@ -35,6 +35,12 @@ namespace IyagiAI.Runtime
         /// </summary>
         public IEnumerator GenerateOrLoadChapter(int chapterId, GameStateSnapshot state, System.Action<List<DialogueRecord>> onComplete)
         {
+            // 0. 캐시가 아직 로드되지 않았으면 로드 (AddComponent로 생성시 Start()가 바로 실행 안됨)
+            if (enableCaching && chapterCache.Count == 0)
+            {
+                LoadCacheFromDisk();
+            }
+
             // 1. 캐시 확인
             if (enableCaching && chapterCache.ContainsKey(chapterId))
             {
@@ -377,6 +383,15 @@ Resolution: 1920×1080.";
                 chapterCache.Clear();
                 foreach (var chapter in wrapper.chapters)
                 {
+                    // DialogueRecord의 JSON 역직렬화 후처리 (리스트→Dictionary 복원)
+                    if (chapter.records != null)
+                    {
+                        foreach (var record in chapter.records)
+                        {
+                            record.OnAfterDeserialize();
+                        }
+                    }
+
                     chapterCache[chapter.chapterId] = chapter;
                 }
 

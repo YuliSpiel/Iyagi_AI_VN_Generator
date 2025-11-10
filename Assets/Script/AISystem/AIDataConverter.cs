@@ -126,6 +126,15 @@ namespace IyagiAI.AISystem
                                     record.Fields[$"Choice{choiceNum}_ValueImpact_{impact.value_name}"] = impact.change.ToString();
                                 }
                             }
+
+                            // Skill Impact 처리
+                            if (line.choices[c].skill_impact != null)
+                            {
+                                foreach (var skillImpact in line.choices[c].skill_impact)
+                                {
+                                    record.Fields[$"Choice{choiceNum}_SkillImpact_{skillImpact.skill_name}"] = skillImpact.change.ToString();
+                                }
+                            }
                         }
                     }
                     else
@@ -257,12 +266,20 @@ namespace IyagiAI.AISystem
             public string text;
             public int next_id;
             public ValueImpact[] value_impact;
+            public SkillImpact[] skill_impact; // 파생 스킬 임팩트
         }
 
         [System.Serializable]
         public class ValueImpact
         {
             public string value_name; // 예: "Courage"
+            public int change; // 예: +10 또는 -5
+        }
+
+        [System.Serializable]
+        public class SkillImpact
+        {
+            public string skill_name; // 예: "공감능력", "판단력"
             public int change; // 예: +10 또는 -5
         }
     }

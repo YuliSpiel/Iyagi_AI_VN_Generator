@@ -16,6 +16,12 @@ namespace IyagiAI.Runtime
         public Dictionary<string, string> Fields = new Dictionary<string, string>();
         private Dictionary<string, string> _ci = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
+        // JSON 직렬화를 위한 Key-Value 리스트 (Unity JsonUtility는 Dictionary를 지원하지 않음)
+        [UnityEngine.SerializeField]
+        private List<string> _keys = new List<string>();
+        [UnityEngine.SerializeField]
+        private List<string> _values = new List<string>();
+
         /// <summary>대소문자 무시 인덱스 재구축</summary>
         public void FinalizeIndex()
         {
@@ -26,6 +32,26 @@ namespace IyagiAI.Runtime
                 if (key.Length == 0) continue;
                 if (!_ci.ContainsKey(key)) _ci[key] = kv.Value ?? string.Empty;
             }
+
+            // JSON 직렬화를 위해 Fields를 리스트로 복사
+            _keys.Clear();
+            _values.Clear();
+            foreach (var kv in Fields)
+            {
+                _keys.Add(kv.Key);
+                _values.Add(kv.Value);
+            }
+        }
+
+        /// <summary>JSON 역직렬화 후 호출: 리스트에서 Dictionary로 복원</summary>
+        public void OnAfterDeserialize()
+        {
+            Fields.Clear();
+            for (int i = 0; i < _keys.Count && i < _values.Count; i++)
+            {
+                Fields[_keys[i]] = _values[i];
+            }
+            FinalizeIndex();
         }
 
         public string GetRaw(string key)
@@ -151,8 +177,12 @@ namespace IyagiAI.Runtime
         /// <summary>선택지가 있는지 확인</summary>
         public bool HasChoices()
         {
-            // Choice1이 있으면 선택지가 있다고 판단
-            string choice1 = Get("Choice1");
+            // Choice1, Choice1_ENG, Choice1_KOR 등 모두 체크
+            string choice1 = FirstNonEmpty(
+                Get("Choice1_ENG"),
+                Get("Choice1_KOR"),
+                Get("Choice1")
+            );
             return !string.IsNullOrEmpty(choice1);
         }
 
@@ -162,7 +192,12 @@ namespace IyagiAI.Runtime
             int count = 0;
             for (int i = 1; i <= 10; i++) // 최대 10개 선택지
             {
-                string choice = Get($"Choice{i}");
+                // Choice{i}, Choice{i}_ENG, Choice{i}_KOR 등 모두 체크
+                string choice = FirstNonEmpty(
+                    Get($"Choice{i}_ENG"),
+                    Get($"Choice{i}_KOR"),
+                    Get($"Choice{i}")
+                );
                 if (string.IsNullOrEmpty(choice))
                     break;
                 count++;

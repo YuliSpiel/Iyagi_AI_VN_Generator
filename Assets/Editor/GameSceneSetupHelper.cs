@@ -75,6 +75,9 @@ public class GameSceneSetupHelper : EditorWindow
             spriteManager.AddComponent<RuntimeSpriteManager>();
         }
 
+        // SkillStatusUI 생성 (좌측 상단 스킬 바)
+        GameObject skillStatusUI = CreateSkillStatusUI(canvasObj.transform);
+
         // 씬 저장
         string scenePath = "Assets/Scenes/GameScene.unity";
         if (!System.IO.Directory.Exists("Assets/Scenes"))
@@ -112,7 +115,7 @@ public class GameSceneSetupHelper : EditorWindow
         backgroundRect.offsetMax = Vector2.zero;
         backgroundObj.transform.SetAsFirstSibling(); // 맨 뒤로
         Image backgroundImage = backgroundObj.AddComponent<Image>();
-        backgroundImage.color = Color.black; // 기본 검은색
+        backgroundImage.color = Color.white; // 기본 흰색 (이미지 보이도록)
 
         // 캐릭터 이미지 슬롯 (Left, Right, Center)
         GameObject leftCharObj = CreateCharacterSlot("LeftCharacter", panel.transform, new Vector2(0.2f, 0.5f));
@@ -297,6 +300,7 @@ public class GameSceneSetupHelper : EditorWindow
         rt.anchorMax = anchorPosition;
         rt.sizeDelta = new Vector2(400, 800); // 캐릭터 스프라이트 크기
         rt.pivot = new Vector2(0.5f, 0f); // 하단 중심
+        rt.anchoredPosition = new Vector2(0, -400); // Y 위치 -400으로 조정 (하단으로 내림)
 
         Image image = obj.AddComponent<Image>();
         image.color = Color.white;
@@ -357,6 +361,129 @@ public class GameSceneSetupHelper : EditorWindow
         }
 
         return buttonObj;
+    }
+
+    static GameObject CreateSkillStatusUI(Transform parent)
+    {
+        // SkillStatusUI 루트
+        GameObject skillUI = new GameObject("SkillStatusUI");
+        skillUI.transform.SetParent(parent, false);
+
+        RectTransform skillRect = skillUI.AddComponent<RectTransform>();
+        skillRect.anchorMin = Vector2.zero;
+        skillRect.anchorMax = Vector2.one;
+        skillRect.offsetMin = Vector2.zero;
+        skillRect.offsetMax = Vector2.zero;
+
+        SkillStatusUI skillStatusUI = skillUI.AddComponent<SkillStatusUI>();
+
+        // 호버 영역 (좌측 상단)
+        GameObject hoverArea = new GameObject("HoverArea");
+        hoverArea.transform.SetParent(skillUI.transform, false);
+
+        RectTransform hoverRect = hoverArea.AddComponent<RectTransform>();
+        hoverRect.anchorMin = new Vector2(0, 1); // 좌상단 앵커
+        hoverRect.anchorMax = new Vector2(0, 1); // 좌상단 앵커
+        hoverRect.pivot = new Vector2(0, 1);
+        hoverRect.anchoredPosition = Vector2.zero;
+        hoverRect.sizeDelta = new Vector2(300, 600); // 가로 300픽셀, 세로 600픽셀
+
+        Image hoverImage = hoverArea.AddComponent<Image>();
+        hoverImage.color = new Color(0, 0, 0, 0); // 투명
+
+        // EventTrigger 추가
+        var trigger = hoverArea.AddComponent<UnityEngine.EventSystems.EventTrigger>();
+
+        var enterEntry = new UnityEngine.EventSystems.EventTrigger.Entry();
+        enterEntry.eventID = UnityEngine.EventSystems.EventTriggerType.PointerEnter;
+        trigger.triggers.Add(enterEntry);
+
+        var exitEntry = new UnityEngine.EventSystems.EventTrigger.Entry();
+        exitEntry.eventID = UnityEngine.EventSystems.EventTriggerType.PointerExit;
+        trigger.triggers.Add(exitEntry);
+
+        // 스킬 패널 (호버 시 표시될 패널)
+        GameObject skillPanel = new GameObject("SkillPanel");
+        skillPanel.transform.SetParent(skillUI.transform, false);
+
+        RectTransform panelRect = skillPanel.AddComponent<RectTransform>();
+        panelRect.anchorMin = new Vector2(0, 1);
+        panelRect.anchorMax = new Vector2(0, 1);
+        panelRect.pivot = new Vector2(0, 1);
+        panelRect.anchoredPosition = new Vector2(0, -10); // 왼쪽 끝에 배치
+        panelRect.sizeDelta = new Vector2(320, 100); // 최소 크기, ContentSizeFitter로 자동 조정
+
+        Image panelBg = skillPanel.AddComponent<Image>();
+        panelBg.color = new Color(0.1f, 0.1f, 0.1f, 0.95f);
+        panelBg.raycastTarget = false; // 레이캐스트 차단 방지
+
+        // CanvasGroup 추가하여 전체 패널의 레이캐스트 차단
+        CanvasGroup canvasGroup = skillPanel.AddComponent<CanvasGroup>();
+        canvasGroup.blocksRaycasts = false; // 이 패널과 모든 자식이 레이캐스트를 차단하지 않음
+
+        // 패널에 VerticalLayoutGroup 추가
+        VerticalLayoutGroup panelLayout = skillPanel.AddComponent<VerticalLayoutGroup>();
+        panelLayout.spacing = 5;
+        panelLayout.padding = new RectOffset(10, 10, 10, 10);
+        panelLayout.childControlHeight = false;
+        panelLayout.childControlWidth = true;
+        panelLayout.childForceExpandHeight = false;
+        panelLayout.childForceExpandWidth = true;
+
+        // ContentSizeFitter 추가하여 내용에 맞춰 크기 자동 조정
+        ContentSizeFitter panelFitter = skillPanel.AddComponent<ContentSizeFitter>();
+        panelFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        // 패널 제목
+        GameObject titleObj = new GameObject("Title");
+        titleObj.transform.SetParent(skillPanel.transform, false);
+
+        LayoutElement titleLayout = titleObj.AddComponent<LayoutElement>();
+        titleLayout.preferredHeight = 30;
+
+        TMP_Text titleText = titleObj.AddComponent<TextMeshProUGUI>();
+        titleText.text = "스킬 현황";
+        titleText.fontSize = 20;
+        titleText.fontStyle = FontStyles.Bold;
+        titleText.color = Color.white;
+        titleText.alignment = TextAlignmentOptions.Center;
+        if (notoSansKRFont != null) titleText.font = notoSansKRFont;
+
+        // 스킬 리스트 컨테이너 (스크롤 없이 단순 나열)
+        GameObject content = new GameObject("Content");
+        content.transform.SetParent(skillPanel.transform, false);
+
+        RectTransform contentRect = content.AddComponent<RectTransform>();
+
+        VerticalLayoutGroup layout = content.AddComponent<VerticalLayoutGroup>();
+        layout.spacing = 3;
+        layout.padding = new RectOffset(0, 0, 0, 0);
+        layout.childControlHeight = false;
+        layout.childControlWidth = true;
+        layout.childForceExpandHeight = false;
+        layout.childForceExpandWidth = true;
+
+        // Content가 자식 개수에 맞춰 높이 자동 조정
+        ContentSizeFitter contentFitter = content.AddComponent<ContentSizeFitter>();
+        contentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        // LayoutElement 추가하여 부모 LayoutGroup에서 제어받도록
+        LayoutElement contentLayoutElement = content.AddComponent<LayoutElement>();
+        contentLayoutElement.flexibleWidth = 1;
+
+        // SkillStatusUI 스크립트에 참조 연결
+        SerializedObject serializedSkillUI = new SerializedObject(skillStatusUI);
+        serializedSkillUI.FindProperty("hoverArea").objectReferenceValue = hoverRect;
+        serializedSkillUI.FindProperty("skillPanel").objectReferenceValue = skillPanel;
+        serializedSkillUI.FindProperty("skillListContainer").objectReferenceValue = contentRect;
+        serializedSkillUI.ApplyModifiedProperties();
+
+        // 초기에는 패널 숨김
+        skillPanel.SetActive(false);
+
+        Debug.Log("✅ SkillStatusUI created successfully");
+
+        return skillUI;
     }
 
     static void LoadFont()
