@@ -65,7 +65,7 @@ namespace IyagiAI.AISystem
                     temperature = 0.9f,
                     topK = 40,
                     topP = 0.95f,
-                    maxOutputTokens = 4096
+                    maxOutputTokens = 8192
                 }
             };
 

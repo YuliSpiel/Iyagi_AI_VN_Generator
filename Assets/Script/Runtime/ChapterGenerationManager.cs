@@ -54,12 +54,25 @@ namespace IyagiAI.Runtime
             yield return geminiClient.GenerateContent(
                 prompt,
                 (jsonResponse) => {
+                    Debug.Log($"[ChapterGenerationManager] Received Gemini response, length: {jsonResponse?.Length ?? 0}");
+
                     // JSON 추출 및 변환
                     records = AIDataConverter.FromAIJson(jsonResponse, chapterId);
+
+                    if (records == null || records.Count == 0)
+                    {
+                        Debug.LogError($"[ChapterGenerationManager] AIDataConverter returned empty or null records");
+                        Debug.LogError($"[ChapterGenerationManager] Raw response preview: {jsonResponse?.Substring(0, System.Math.Min(1000, jsonResponse?.Length ?? 0))}");
+                    }
+                    else
+                    {
+                        Debug.Log($"[ChapterGenerationManager] Successfully converted {records.Count} dialogue records");
+                    }
+
                     completed = true;
                 },
                 (error) => {
-                    Debug.LogError($"Chapter generation failed: {error}");
+                    Debug.LogError($"[ChapterGenerationManager] Gemini API error: {error}");
                     completed = true;
                 }
             );
@@ -168,13 +181,15 @@ Output ONLY a JSON array of dialogue lines in this exact format:
 ]
 
 Important:
-- Generate 10-15 dialogue lines for this chapter (MUST complete the JSON array properly)
-- Include 1-2 choice points that affect Core Values
-- Include 1 CG for the most dramatic/important moment
+- Generate 8-12 dialogue lines for this chapter (shorter = more reliable JSON)
+- Include 1 choice point that affects Core Values (optional, only if story naturally needs it)
+- Include 1 CG only if this is a climactic moment (optional)
 - Use only available expressions and poses listed above
-- Output ONLY the JSON array, no other text
-- CRITICAL: Ensure the JSON array is properly closed with ] at the end
-- Each object must end with a comma except the last one";
+- Output ONLY the JSON array, no other text before or after
+- CRITICAL: Ensure the JSON array is properly closed with ]
+- Each object must end with a comma except the last one
+- Keep JSON simple: omit optional fields if not needed
+- If a field is not needed, omit it entirely (don't use empty strings or null)";
 
             return prompt;
         }

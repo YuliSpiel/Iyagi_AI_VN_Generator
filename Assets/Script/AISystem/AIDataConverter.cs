@@ -64,76 +64,93 @@ namespace IyagiAI.AISystem
 
             for (int i = 0; i < wrapper.lines.Length; i++)
             {
-                var line = wrapper.lines[i];
-                Runtime.DialogueRecord record = new Runtime.DialogueRecord();
-
-                // 기본 필드
-                record.Fields["ID"] = (baseId + i).ToString();
-                record.Fields["Scene"] = chapterId.ToString();
-                record.Fields["Index"] = i.ToString();
-
-                // 대화 텍스트
-                record.Fields["ParsedLine_ENG"] = line.text ?? "";
-                record.Fields["NameTag"] = line.speaker ?? "";
-
-                // 배경/BGM/SFX
-                record.Fields["BG"] = line.bg_name ?? "";
-                record.Fields["BGM"] = line.bgm_name ?? "";
-                record.Fields["SFX"] = line.sfx_name ?? "";
-
-                // 캐릭터 1
-                if (!string.IsNullOrEmpty(line.character1_name))
+                try
                 {
-                    record.Fields["Char1Name"] = line.character1_name;
-                    record.Fields["Char1Look"] = $"{line.character1_expression}_{line.character1_pose}";
-                    record.Fields["Char1Pos"] = line.character1_position ?? "Center";
-                    record.Fields["Char1Size"] = "Medium";
-                }
+                    var line = wrapper.lines[i];
 
-                // 캐릭터 2
-                if (!string.IsNullOrEmpty(line.character2_name))
-                {
-                    record.Fields["Char2Name"] = line.character2_name;
-                    record.Fields["Char2Look"] = $"{line.character2_expression}_{line.character2_pose}";
-                    record.Fields["Char2Pos"] = line.character2_position ?? "Left";
-                    record.Fields["Char2Size"] = "Medium";
-                }
-
-                // 선택지
-                if (line.choices != null && line.choices.Length > 0)
-                {
-                    for (int c = 0; c < line.choices.Length && c < 4; c++) // 최대 4개
+                    // Null 체크
+                    if (line == null)
                     {
-                        int choiceNum = c + 1;
-                        record.Fields[$"Choice{choiceNum}_ENG"] = line.choices[c].text ?? "";
-                        record.Fields[$"Next{choiceNum}"] = line.choices[c].next_id.ToString();
+                        Debug.LogWarning($"[AIDataConverter] Line {i} is null, skipping");
+                        continue;
+                    }
 
-                        // Value Impact 처리
-                        if (line.choices[c].value_impact != null)
+                    Runtime.DialogueRecord record = new Runtime.DialogueRecord();
+
+                    // 기본 필드
+                    record.Fields["ID"] = (baseId + i).ToString();
+                    record.Fields["Scene"] = chapterId.ToString();
+                    record.Fields["Index"] = i.ToString();
+
+                    // 대화 텍스트
+                    record.Fields["ParsedLine_ENG"] = line.text ?? "";
+                    record.Fields["NameTag"] = line.speaker ?? "";
+
+                    // 배경/BGM/SFX
+                    record.Fields["BG"] = line.bg_name ?? "";
+                    record.Fields["BGM"] = line.bgm_name ?? "";
+                    record.Fields["SFX"] = line.sfx_name ?? "";
+
+                    // 캐릭터 1
+                    if (!string.IsNullOrEmpty(line.character1_name))
+                    {
+                        record.Fields["Char1Name"] = line.character1_name;
+                        record.Fields["Char1Look"] = $"{line.character1_expression}_{line.character1_pose}";
+                        record.Fields["Char1Pos"] = line.character1_position ?? "Center";
+                        record.Fields["Char1Size"] = "Medium";
+                    }
+
+                    // 캐릭터 2
+                    if (!string.IsNullOrEmpty(line.character2_name))
+                    {
+                        record.Fields["Char2Name"] = line.character2_name;
+                        record.Fields["Char2Look"] = $"{line.character2_expression}_{line.character2_pose}";
+                        record.Fields["Char2Pos"] = line.character2_position ?? "Left";
+                        record.Fields["Char2Size"] = "Medium";
+                    }
+
+                    // 선택지
+                    if (line.choices != null && line.choices.Length > 0)
+                    {
+                        for (int c = 0; c < line.choices.Length && c < 4; c++) // 최대 4개
                         {
-                            foreach (var impact in line.choices[c].value_impact)
+                            int choiceNum = c + 1;
+                            record.Fields[$"Choice{choiceNum}_ENG"] = line.choices[c].text ?? "";
+                            record.Fields[$"Next{choiceNum}"] = line.choices[c].next_id.ToString();
+
+                            // Value Impact 처리
+                            if (line.choices[c].value_impact != null)
                             {
-                                record.Fields[$"Choice{choiceNum}_ValueImpact_{impact.value_name}"] = impact.change.ToString();
+                                foreach (var impact in line.choices[c].value_impact)
+                                {
+                                    record.Fields[$"Choice{choiceNum}_ValueImpact_{impact.value_name}"] = impact.change.ToString();
+                                }
                             }
                         }
                     }
-                }
-                else
-                {
-                    // 선택지 없으면 다음 라인으로 자동 진행
-                    record.Fields["Auto"] = "TRUE";
-                }
+                    else
+                    {
+                        // 선택지 없으면 다음 라인으로 자동 진행
+                        record.Fields["Auto"] = "TRUE";
+                    }
 
-                // CG 정보
-                if (!string.IsNullOrEmpty(line.cg_id))
-                {
-                    record.Fields["CG_ID"] = line.cg_id;
-                    record.Fields["CG_Title"] = line.cg_title ?? "";
-                    record.Fields["IsCGLine"] = "TRUE";
-                }
+                    // CG 정보
+                    if (!string.IsNullOrEmpty(line.cg_id))
+                    {
+                        record.Fields["CG_ID"] = line.cg_id;
+                        record.Fields["CG_Title"] = line.cg_title ?? "";
+                        record.Fields["IsCGLine"] = "TRUE";
+                    }
 
-                record.FinalizeIndex();
-                records.Add(record);
+                    record.FinalizeIndex();
+                    records.Add(record);
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogError($"[AIDataConverter] Error processing line {i}: {e.Message}");
+                    Debug.LogError($"[AIDataConverter] Stack trace: {e.StackTrace}");
+                    // 에러 발생해도 계속 진행 (나머지 라인 처리)
+                }
             }
 
             return records;
