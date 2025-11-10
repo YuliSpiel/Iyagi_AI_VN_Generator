@@ -123,6 +123,10 @@ namespace IyagiAI.TitleScene
             text.alignment = TextAlignmentOptions.Center;
             text.color = Color.gray;
 
+            // NotoSansKR 폰트 로드
+            TMP_FontAsset font = Resources.Load<TMP_FontAsset>("Fonts/NotoSansKR SDF");
+            if (font != null) text.font = font;
+
             var rectTransform = messageObj.GetComponent<RectTransform>();
             rectTransform.sizeDelta = new Vector2(400, 100);
         }
@@ -137,6 +141,13 @@ namespace IyagiAI.TitleScene
         /// </summary>
         private GameObject CreateProjectItemPrefab()
         {
+            // NotoSansKR 폰트 로드
+            TMP_FontAsset font = Resources.Load<TMP_FontAsset>("Fonts/NotoSansKR SDF");
+            if (font == null)
+            {
+                Debug.LogWarning("[ProjectSelectPanel] NotoSansKR SDF font not found in Resources/Fonts/");
+            }
+
             // 1. 루트 GameObject 생성
             GameObject projectItem = new GameObject("ProjectItemPrefab");
             var rectTransform = projectItem.AddComponent<RectTransform>();
@@ -157,6 +168,7 @@ namespace IyagiAI.TitleScene
             nameText.fontSize = 24;
             nameText.fontStyle = FontStyles.Bold;
             nameText.color = Color.white;
+            if (font != null) nameText.font = font;
             var nameRect = nameObj.GetComponent<RectTransform>();
             nameRect.anchorMin = new Vector2(0, 0.6f);
             nameRect.anchorMax = new Vector2(0.6f, 1);
@@ -170,6 +182,7 @@ namespace IyagiAI.TitleScene
             lastPlayedText.text = "최근 플레이: 2025-01-10";
             lastPlayedText.fontSize = 14;
             lastPlayedText.color = new Color(0.7f, 0.7f, 0.7f, 1);
+            if (font != null) lastPlayedText.font = font;
             var lastPlayedRect = lastPlayedObj.GetComponent<RectTransform>();
             lastPlayedRect.anchorMin = new Vector2(0, 0.3f);
             lastPlayedRect.anchorMax = new Vector2(0.6f, 0.6f);
@@ -183,6 +196,7 @@ namespace IyagiAI.TitleScene
             saveCountText.text = "1개의 저장 파일";
             saveCountText.fontSize = 14;
             saveCountText.color = new Color(0.7f, 0.7f, 0.7f, 1);
+            if (font != null) saveCountText.font = font;
             var saveCountRect = saveCountObj.GetComponent<RectTransform>();
             saveCountRect.anchorMin = new Vector2(0, 0);
             saveCountRect.anchorMax = new Vector2(0.3f, 0.3f);
@@ -196,6 +210,7 @@ namespace IyagiAI.TitleScene
             chapterInfoText.text = "3개 챕터";
             chapterInfoText.fontSize = 14;
             chapterInfoText.color = new Color(0.7f, 0.7f, 0.7f, 1);
+            if (font != null) chapterInfoText.font = font;
             var chapterInfoRect = chapterInfoObj.GetComponent<RectTransform>();
             chapterInfoRect.anchorMin = new Vector2(0.3f, 0);
             chapterInfoRect.anchorMax = new Vector2(0.6f, 0.3f);
@@ -221,6 +236,7 @@ namespace IyagiAI.TitleScene
             selectBtnText.fontSize = 18;
             selectBtnText.alignment = TextAlignmentOptions.Center;
             selectBtnText.color = Color.white;
+            if (font != null) selectBtnText.font = font;
             var selectBtnTextRect = selectBtnTextObj.GetComponent<RectTransform>();
             selectBtnTextRect.anchorMin = Vector2.zero;
             selectBtnTextRect.anchorMax = Vector2.one;
@@ -246,6 +262,7 @@ namespace IyagiAI.TitleScene
             cgBtnText.fontSize = 18;
             cgBtnText.alignment = TextAlignmentOptions.Center;
             cgBtnText.color = Color.white;
+            if (font != null) cgBtnText.font = font;
             var cgBtnTextRect = cgBtnTextObj.GetComponent<RectTransform>();
             cgBtnTextRect.anchorMin = Vector2.zero;
             cgBtnTextRect.anchorMax = Vector2.one;
@@ -271,6 +288,7 @@ namespace IyagiAI.TitleScene
             delBtnText.fontSize = 18;
             delBtnText.alignment = TextAlignmentOptions.Center;
             delBtnText.color = Color.white;
+            if (font != null) delBtnText.font = font;
             var delBtnTextRect = delBtnTextObj.GetComponent<RectTransform>();
             delBtnTextRect.anchorMin = Vector2.zero;
             delBtnTextRect.anchorMax = Vector2.one;
