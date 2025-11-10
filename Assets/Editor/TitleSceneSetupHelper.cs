@@ -120,6 +120,9 @@ public class TitleSceneSetupHelper : EditorWindow
         projectSelectPanel.backButton = CreateButton("BackButton", panel.transform, "Back").GetComponent<Button>();
         SetPosition(projectSelectPanel.backButton.GetComponent<RectTransform>(), 0.05f, 0.05f, 0.25f, 0.12f);
 
+        // Korean 폰트 할당
+        projectSelectPanel.koreanFont = notoSansKRFont;
+
         // ProjectItem Prefab은 이제 런타임에 자동 생성됨 (수동 연결 불필요)
 
         return panel;

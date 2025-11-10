@@ -17,6 +17,7 @@ namespace IyagiAI.TitleScene
 
         [Header("UI Elements")]
         public Transform projectListContainer; // ScrollView Content
+        public TMP_FontAsset koreanFont; // NotoSansKR 폰트 (인스펙터에서 설정)
 
         [Header("Buttons")]
         public Button backButton;
@@ -123,9 +124,8 @@ namespace IyagiAI.TitleScene
             text.alignment = TextAlignmentOptions.Center;
             text.color = Color.gray;
 
-            // NotoSansKR 폰트 로드
-            TMP_FontAsset font = Resources.Load<TMP_FontAsset>("Fonts/NotoSansKR SDF");
-            if (font != null) text.font = font;
+            // koreanFont 사용
+            if (koreanFont != null) text.font = koreanFont;
 
             var rectTransform = messageObj.GetComponent<RectTransform>();
             rectTransform.sizeDelta = new Vector2(400, 100);
@@ -141,11 +141,11 @@ namespace IyagiAI.TitleScene
         /// </summary>
         private GameObject CreateProjectItemPrefab()
         {
-            // NotoSansKR 폰트 로드
-            TMP_FontAsset font = Resources.Load<TMP_FontAsset>("Fonts/NotoSansKR SDF");
+            // koreanFont 사용 (인스펙터에서 설정된 폰트)
+            TMP_FontAsset font = koreanFont;
             if (font == null)
             {
-                Debug.LogWarning("[ProjectSelectPanel] NotoSansKR SDF font not found in Resources/Fonts/");
+                Debug.LogWarning("[ProjectSelectPanel] Korean font not assigned in inspector");
             }
 
             // 1. 루트 GameObject 생성
