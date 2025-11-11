@@ -186,6 +186,9 @@ public class TitleSceneSetupHelper : EditorWindow
         GameObject popup = CreateNewSavePopup(panel.transform, saveFilePanel);
         saveFilePanel.newSavePopup = popup;
 
+        // Korean 폰트 할당
+        saveFilePanel.koreanFont = notoSansKRFont;
+
         // SaveFileItem Prefab 생성
         GameObject prefab = CreateSaveFileItemPrefab();
         saveFilePanel.saveFileItemPrefab = prefab;

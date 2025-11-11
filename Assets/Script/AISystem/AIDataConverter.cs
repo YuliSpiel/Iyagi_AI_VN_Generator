@@ -135,6 +135,15 @@ namespace IyagiAI.AISystem
                                     record.Fields[$"Choice{choiceNum}_SkillImpact_{skillImpact.skill_name}"] = skillImpact.change.ToString();
                                 }
                             }
+
+                            // Affection Impact 처리 (새로 추가)
+                            if (line.choices[c].affection_impact != null)
+                            {
+                                foreach (var affectionImpact in line.choices[c].affection_impact)
+                                {
+                                    record.Fields[$"Choice{choiceNum}_AffectionImpact_{affectionImpact.character_name}"] = affectionImpact.change.ToString();
+                                }
+                            }
                         }
                     }
                     else
@@ -267,6 +276,7 @@ namespace IyagiAI.AISystem
             public int next_id;
             public ValueImpact[] value_impact;
             public SkillImpact[] skill_impact; // 파생 스킬 임팩트
+            public AffectionImpact[] affection_impact; // 친밀도 임팩트 (새로 추가)
         }
 
         [System.Serializable]
@@ -280,6 +290,13 @@ namespace IyagiAI.AISystem
         public class SkillImpact
         {
             public string skill_name; // 예: "공감능력", "판단력"
+            public int change; // 예: +10 또는 -5
+        }
+
+        [System.Serializable]
+        public class AffectionImpact
+        {
+            public string character_name; // 예: "Hans", "Heilner"
             public int change; // 예: +10 또는 -5
         }
     }

@@ -133,7 +133,7 @@ namespace IyagiAI.SetupWizard
         }
 
         /// <summary>
-        /// Cycle 1: 모든 캐릭터 스탠딩 생성
+        /// Cycle 1: 모든 캐릭터 스탠딩 생성 (테스트 모드: TestResources에서 복사)
         /// </summary>
         private IEnumerator GenerateAllStandingSprites(System.Action onComplete)
         {
@@ -149,36 +149,69 @@ namespace IyagiAI.SetupWizard
                 allCharacters.AddRange(projectData.npcs);
             }
 
-            Debug.Log($"[Cycle 1] 총 {allCharacters.Count}명 캐릭터 스탠딩 생성 시작");
+            Debug.Log($"[Cycle 1] [TEST MODE] 총 {allCharacters.Count}명 캐릭터 스탠딩 복사 시작 (TestResources 사용)");
 
             int completedCharacters = 0;
 
+            // TestResources에서 스탠딩 이미지 복사
             for (int i = 0; i < allCharacters.Count; i++)
             {
                 var character = allCharacters[i];
-                bool isFirst = (i == 0); // 첫 캐릭터만 스타일 기준
 
-                var generator = gameObject.AddComponent<StandingSpriteGenerator>();
-                bool charComplete = false;
-
-                StartCoroutine(generator.GenerateStandingSet(
-                    character,
-                    nanoBananaClient,
-                    isFirst,
-                    () => {
-                        charComplete = true;
-                        completedCharacters++;
-                        Debug.Log($"[Cycle 1] {character.characterName} 스탠딩 완료 ({completedCharacters}/{allCharacters.Count})");
-                    }
-                ));
-
-                // 각 캐릭터 완료 대기
-                yield return new WaitUntil(() => charComplete);
+                // TestResources/Standing에서 이미지 복사
+                yield return CopyStandingFromTestResources(character, () => {
+                    completedCharacters++;
+                    Debug.Log($"[Cycle 1] [TEST MODE] {character.characterName} 스탠딩 복사 완료 ({completedCharacters}/{allCharacters.Count})");
+                });
             }
 
-            Debug.Log($"[Cycle 1] 모든 캐릭터 스탠딩 생성 완료");
+            Debug.Log($"[Cycle 1] [TEST MODE] 모든 캐릭터 스탠딩 복사 완료 (API 호출 없음)");
             onComplete?.Invoke();
         }
+
+#if UNITY_EDITOR
+        /// <summary>
+        /// TestResources에서 스탠딩 이미지 복사
+        /// </summary>
+        private IEnumerator CopyStandingFromTestResources(CharacterData character, System.Action onComplete)
+        {
+            string sourceDir = "Assets/Resources/TestResources/Standing";
+            string targetDir = $"Assets/Resources/Generated/Characters/{character.characterName}";
+
+            // 타겟 폴더 생성
+            if (!System.IO.Directory.Exists(targetDir))
+            {
+                System.IO.Directory.CreateDirectory(targetDir);
+            }
+
+            // TestResources/Standing에서 사용 가능한 첫 번째 캐릭터 폴더 찾기
+            string[] testCharacterDirs = System.IO.Directory.GetDirectories(sourceDir);
+            if (testCharacterDirs.Length == 0)
+            {
+                Debug.LogWarning($"[Cycle 1] TestResources에 스탠딩 폴더 없음. 스킵: {character.characterName}");
+                onComplete?.Invoke();
+                yield break;
+            }
+
+            string testSourceDir = testCharacterDirs[0]; // 첫 번째 테스트 캐릭터 사용
+
+            // 모든 이미지 파일 복사 (.png만)
+            string[] sourceFiles = System.IO.Directory.GetFiles(testSourceDir, "*.png");
+            foreach (var sourceFile in sourceFiles)
+            {
+                string fileName = System.IO.Path.GetFileName(sourceFile);
+                string targetFile = System.IO.Path.Combine(targetDir, fileName);
+
+                System.IO.File.Copy(sourceFile, targetFile, true);
+                Debug.Log($"[Cycle 1] [TEST MODE] 복사 완료: {fileName}");
+            }
+
+            UnityEditor.AssetDatabase.Refresh();
+
+            onComplete?.Invoke();
+            yield break;
+        }
+#endif
 
         /// <summary>
         /// Cycle 2: 챕터1 JSON 생성
@@ -307,107 +340,103 @@ namespace IyagiAI.SetupWizard
         }
 
         /// <summary>
-        /// 배경 이미지 생성
+        /// 배경 이미지 생성 (테스트 모드: TestResources에서 복사)
         /// </summary>
         private IEnumerator GenerateBackground(string bgName, System.Action onComplete)
         {
-            Debug.Log($"[Cycle 3] 배경 생성 시작: {bgName}");
+            Debug.Log($"[Cycle 3] [TEST MODE] 배경 복사 시작: {bgName} (API 호출 없음)");
 
-            string prompt = $"A background illustration for a visual novel. {bgName}. High quality anime style, no characters. 1920x1080.";
+#if UNITY_EDITOR
+            string sourceDir = "Assets/Resources/TestResources/Background";
+            string targetDir = "Assets/Resources/Image/Background";
 
-            bool completed = false;
-            yield return nanoBananaClient.GenerateImage(
-                prompt,
-                null, // 랜덤 시드
-                (texture, seed) => {
-                    SaveBackgroundAsset(bgName, texture);
-                    completed = true;
-                },
-                (error) => {
-                    Debug.LogError($"[Cycle 3] 배경 생성 실패: {bgName} - {error}");
-                    completed = true;
-                }
-            );
+            if (!System.IO.Directory.Exists(targetDir))
+            {
+                System.IO.Directory.CreateDirectory(targetDir);
+            }
 
-            yield return new WaitUntil(() => completed);
+            // TestResources/Background에서 첫 번째 이미지 복사
+            string[] sourceFiles = System.IO.Directory.GetFiles(sourceDir, "*.png");
+            if (sourceFiles.Length > 0)
+            {
+                string sourceFile = sourceFiles[0];
+                string targetFile = System.IO.Path.Combine(targetDir, $"{bgName}.png");
+
+                System.IO.File.Copy(sourceFile, targetFile, true);
+                Debug.Log($"[Cycle 3] [TEST MODE] 배경 복사 완료: {bgName}");
+
+                UnityEditor.AssetDatabase.Refresh();
+            }
+            else
+            {
+                Debug.LogWarning($"[Cycle 3] TestResources에 배경 이미지 없음");
+            }
+#endif
+
             onComplete?.Invoke();
+            yield break;
         }
 
         /// <summary>
-        /// CG 일러스트 생성
+        /// CG 일러스트 생성 (테스트 모드: 스킵)
         /// </summary>
         private IEnumerator GenerateCG(string cgDescription, System.Action onComplete)
         {
-            Debug.Log($"[Cycle 3] CG 생성 시작: {cgDescription}");
+            Debug.Log($"[Cycle 3] [TEST MODE] CG 생성 스킵: {cgDescription} (API 호출 없음)");
 
-            string prompt = $"An event CG illustration for a visual novel. {cgDescription}. High quality anime style. 1920x1080.";
-
-            bool completed = false;
-            yield return nanoBananaClient.GenerateImage(
-                prompt,
-                null,
-                (texture, seed) => {
-                    SaveCGAsset(cgDescription, texture);
-                    completed = true;
-                },
-                (error) => {
-                    Debug.LogError($"[Cycle 3] CG 생성 실패: {cgDescription} - {error}");
-                    completed = true;
-                }
-            );
-
-            yield return new WaitUntil(() => completed);
+            // 테스트 모드에서는 CG 생성 스킵
             onComplete?.Invoke();
+            yield break;
         }
 
         /// <summary>
-        /// BGM 생성
+        /// BGM 생성 (테스트 모드: TestResources에서 복사)
         /// </summary>
         private IEnumerator GenerateBGM(string bgmName, System.Action onComplete)
         {
-            Debug.Log($"[Cycle 3] BGM 생성 시작: {bgmName}");
+            Debug.Log($"[Cycle 3] [TEST MODE] BGM 복사 시작: {bgmName} (API 호출 없음)");
 
-            bool completed = false;
-            yield return elevenLabsClient.GenerateBGM(
-                bgmName,
-                60f, // 60초
-                (audioClip) => {
-                    SaveBGMAsset(bgmName, audioClip);
-                    completed = true;
-                },
-                (error) => {
-                    Debug.LogError($"[Cycle 3] BGM 생성 실패: {bgmName} - {error}");
-                    completed = true;
-                }
-            );
+#if UNITY_EDITOR
+            string sourceDir = "Assets/Resources/TestResources/BGM";
+            string targetDir = "Assets/Resources/Sound/BGM";
 
-            yield return new WaitUntil(() => completed);
+            if (!System.IO.Directory.Exists(targetDir))
+            {
+                System.IO.Directory.CreateDirectory(targetDir);
+            }
+
+            // TestResources/BGM에서 첫 번째 파일 복사
+            string[] sourceFiles = System.IO.Directory.GetFiles(sourceDir, "*.mp3");
+            if (sourceFiles.Length > 0)
+            {
+                string sourceFile = sourceFiles[0];
+                string targetFile = System.IO.Path.Combine(targetDir, $"{bgmName}.mp3");
+
+                System.IO.File.Copy(sourceFile, targetFile, true);
+                Debug.Log($"[Cycle 3] [TEST MODE] BGM 복사 완료: {bgmName}");
+
+                UnityEditor.AssetDatabase.Refresh();
+            }
+            else
+            {
+                Debug.LogWarning($"[Cycle 3] TestResources에 BGM 파일 없음");
+            }
+#endif
+
             onComplete?.Invoke();
+            yield break;
         }
 
         /// <summary>
-        /// SFX 생성
+        /// SFX 생성 (테스트 모드: 스킵)
         /// </summary>
         private IEnumerator GenerateSFX(string sfxName, System.Action onComplete)
         {
-            Debug.Log($"[Cycle 3] SFX 생성 시작: {sfxName}");
+            Debug.Log($"[Cycle 3] [TEST MODE] SFX 생성 스킵: {sfxName} (API 호출 없음)");
 
-            bool completed = false;
-            yield return elevenLabsClient.GenerateSFX(
-                sfxName,
-                5f, // 5초
-                (audioClip) => {
-                    SaveSFXAsset(sfxName, audioClip);
-                    completed = true;
-                },
-                (error) => {
-                    Debug.LogError($"[Cycle 3] SFX 생성 실패: {sfxName} - {error}");
-                    completed = true;
-                }
-            );
-
-            yield return new WaitUntil(() => completed);
+            // 테스트 모드에서는 SFX 생성 스킵
             onComplete?.Invoke();
+            yield break;
         }
 
         // ===== 에셋 저장 헬퍼 메서드 =====

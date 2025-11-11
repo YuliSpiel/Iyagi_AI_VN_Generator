@@ -17,9 +17,15 @@ namespace IyagiAI.Runtime
 
         [Header("UI")]
         public DialogueUI dialogueUI;
+        public GameObject endingPanel;
+        public TMPro.TMP_Text endingTitleText;
+        public TMPro.TMP_Text endingDescriptionText;
+        public TMPro.TMP_Text endingStatsText;
+        public TMPro.TMP_Text romanceText;
 
         [Header("Managers")]
         public ChapterGenerationManager chapterManager;
+        public EndingManager endingManager;
         public RuntimeSpriteManager spriteManager;
         public SaveDataManager saveManager;
 
@@ -31,45 +37,71 @@ namespace IyagiAI.Runtime
 
         void Start()
         {
+            Debug.Log("=== [GameController] Start() 시작 ===");
+
             // SaveDataManager에서 현재 로드된 SaveFile 정보 가져오기
             string currentSaveFileId = PlayerPrefs.GetString("CurrentSaveFileId", "");
+            Debug.Log($"[GameController] CurrentSaveFileId from PlayerPrefs: {currentSaveFileId}");
 
             if (string.IsNullOrEmpty(currentSaveFileId))
             {
-                Debug.LogError("No save file loaded! Returning to title...");
+                Debug.LogError("[GameController] No save file loaded! Returning to title...");
                 UnityEngine.SceneManagement.SceneManager.LoadScene("TitleScene");
                 return;
             }
 
             // SaveFile에서 프로젝트 GUID 찾기
             SaveFile saveFile = null;
-            foreach (var project in SaveDataManager.Instance.GetAllProjectSlots())
+            var allProjects = SaveDataManager.Instance.GetAllProjectSlots();
+            Debug.Log($"[GameController] Total project slots: {allProjects.Count}");
+
+            foreach (var project in allProjects)
             {
+                Debug.Log($"[GameController] Checking project: {project.projectName} (GUID: {project.projectGuid})");
                 saveFile = project.saveFiles.FirstOrDefault(s => s.saveFileId == currentSaveFileId);
                 if (saveFile != null)
+                {
+                    Debug.Log($"[GameController] Found SaveFile in project: {project.projectName}");
                     break;
+                }
             }
 
             if (saveFile == null)
             {
-                Debug.LogError($"SaveFile not found: {currentSaveFileId}");
+                Debug.LogError($"[GameController] SaveFile not found: {currentSaveFileId}");
                 UnityEngine.SceneManagement.SceneManager.LoadScene("TitleScene");
                 return;
             }
 
-            // 프로젝트 데이터 로드 (Resources에서)
+            // 프로젝트 데이터 로드 (Resources에서, GUID로 검색)
             string projectGuid = saveFile.projectGuid;
-            var allProjects = Resources.LoadAll<VNProjectData>("Projects");
-            projectData = System.Array.Find(allProjects, p => p.projectGuid == projectGuid);
+            Debug.Log($"[GameController] Loading project with GUID: {projectGuid}");
+
+            // 먼저 Projects 폴더에서 찾기
+            var allProjectsInResources = Resources.LoadAll<VNProjectData>("Projects");
+            Debug.Log($"[GameController] Found {allProjectsInResources.Length} projects in Resources/Projects");
+            projectData = System.Array.Find(allProjectsInResources, p => p.projectGuid == projectGuid);
+
+            // Projects에서 못 찾으면 VNProjects 폴더에서 찾기
+            if (projectData == null)
+            {
+                var vnProjects = Resources.LoadAll<VNProjectData>("VNProjects");
+                Debug.Log($"[GameController] Found {vnProjects.Length} projects in Resources/VNProjects");
+                projectData = System.Array.Find(vnProjects, p => p.projectGuid == projectGuid);
+            }
 
             if (projectData == null)
             {
-                Debug.LogError($"Failed to load project data: {projectGuid}");
+                Debug.LogError($"[GameController] Failed to load project data: {projectGuid}");
+                Debug.LogError($"[GameController] Searched in Resources/Projects and Resources/VNProjects");
                 UnityEngine.SceneManagement.SceneManager.LoadScene("TitleScene");
                 return;
             }
 
-            Debug.Log($"Loaded project: {projectData.gameTitle}");
+            Debug.Log($"[GameController] ✅ Loaded project: {projectData.gameTitle}");
+            Debug.Log($"[GameController] Project GUID: {projectData.projectGuid}");
+            Debug.Log($"[GameController] Player Character: {projectData.playerCharacter?.characterName ?? "null"}");
+            Debug.Log($"[GameController] NPCs: {projectData.npcs?.Count ?? 0}");
 
             // API 설정 로드
             APIConfigData config = Resources.Load<APIConfigData>("APIConfig");
@@ -164,6 +196,32 @@ namespace IyagiAI.Runtime
         {
             Debug.Log($"Starting Chapter {chapterId}...");
 
+            // 테스트 모드 체크: TestChapter1.json 파일이 있으면 직접 로드
+            TextAsset testChapter = Resources.Load<TextAsset>("TestChapter1");
+            if (testChapter != null)
+            {
+                Debug.Log("[GameController] Test mode detected - loading TestChapter1.json directly");
+                currentChapterRecords = AIDataConverter.FromAIJson(testChapter.text, chapterId);
+
+                if (currentChapterRecords != null && currentChapterRecords.Count > 0)
+                {
+                    currentChapterId = chapterId;
+                    currentLineIndex = 0;
+
+                    // DialogueUI에 첫 라인 표시
+                    ShowCurrentLine();
+
+                    Debug.Log($"[GameController] TestChapter1 loaded with {currentChapterRecords.Count} lines");
+                }
+                else
+                {
+                    Debug.LogError("[GameController] Failed to parse TestChapter1.json");
+                }
+
+                yield break;
+            }
+
+            // 일반 모드: ChapterGenerationManager로 생성/로드
             bool completed = false;
 
             yield return chapterManager.GenerateOrLoadChapter(
@@ -308,10 +366,10 @@ namespace IyagiAI.Runtime
                 }
             }
 
-            // Affection Impact 처리
+            // Affection Impact 처리 (AIDataConverter가 AffectionImpact_ 키로 저장)
             foreach (var npc in projectData.npcs)
             {
-                string affectKey = $"Choice{choiceIndex + 1}_Affection_{npc.characterName}";
+                string affectKey = $"Choice{choiceIndex + 1}_AffectionImpact_{npc.characterName}";
                 if (currentLine.Has(affectKey) && currentLine.TryGetInt(affectKey, out int change))
                 {
                     if (currentState.characterAffections.ContainsKey(npc.characterName))
@@ -365,58 +423,109 @@ namespace IyagiAI.Runtime
         }
 
         /// <summary>
-        /// 엔딩 결정
+        /// 엔딩 결정 및 표시
         /// </summary>
         void DetermineEnding()
         {
             Debug.Log("Game completed! Determining ending...");
 
-            // 엔딩 조건 체크
-            foreach (var ending in projectData.endings)
+            // EndingManager 초기화 (없으면 생성)
+            if (endingManager == null)
             {
-                bool meetsRequirements = true;
+                endingManager = gameObject.AddComponent<EndingManager>();
+                endingManager.projectData = projectData;
+            }
 
-                // Core Value 요구치 확인
-                if (ending.requiredValues != null)
+            // 엔딩 판정
+            EndingResult result = endingManager.DetermineEnding(currentState);
+
+            // 엔딩 화면 표시
+            DisplayEnding(result);
+        }
+
+        /// <summary>
+        /// 엔딩 화면 표시
+        /// </summary>
+        void DisplayEnding(EndingResult result)
+        {
+            if (endingPanel == null)
+            {
+                Debug.LogError("[GameController] endingPanel is null! Cannot display ending.");
+                return;
+            }
+
+            // 패널 활성화
+            endingPanel.SetActive(true);
+
+            // 제목 및 설명 표시
+            if (endingTitleText != null)
+                endingTitleText.text = result.endingTitle;
+
+            if (endingDescriptionText != null)
+                endingDescriptionText.text = result.endingDescription;
+
+            // 최종 통계 표시
+            if (endingStatsText != null)
+            {
+                string statsText = "[Final Stats]\n\n";
+                statsText += "Core Values:\n";
+                foreach (var kvp in currentState.coreValueScores)
                 {
-                    foreach (var req in ending.requiredValues)
-                    {
-                        if (!currentState.coreValueScores.ContainsKey(req.Key) ||
-                            currentState.coreValueScores[req.Key] < req.Value)
-                        {
-                            meetsRequirements = false;
-                            break;
-                        }
-                    }
+                    statsText += $"  {kvp.Key}: {kvp.Value}\n";
                 }
-
-                // 캐릭터 호감도 요구치 확인
-                if (meetsRequirements && ending.requiredAffections != null)
+                statsText += "\nAffection:\n";
+                foreach (var kvp in currentState.characterAffections)
                 {
-                    foreach (var req in ending.requiredAffections)
-                    {
-                        if (!currentState.characterAffections.ContainsKey(req.Key) ||
-                            currentState.characterAffections[req.Key] < req.Value)
-                        {
-                            meetsRequirements = false;
-                            break;
-                        }
-                    }
+                    statsText += $"  {kvp.Key}: {kvp.Value}\n";
                 }
+                endingStatsText.text = statsText;
+            }
 
-                if (meetsRequirements)
+            // Romance Achievements 표시 - 간단한 텍스트로 변경
+            if (romanceText != null)
+            {
+                if (result.romanceCharacters.Count > 0)
                 {
-                    Debug.Log($"Ending achieved: {ending.endingName}");
-                    currentState.unlockedEndings.Add(ending.endingId);
-
-                    // TODO: 엔딩 화면 표시
-                    // ShowEnding(ending);
-                    return;
+                    string romanceNames = string.Join(", ", result.romanceCharacters);
+                    romanceText.text = $"{romanceNames}과(와) 함께하게 됩니다.";
+                    romanceText.gameObject.SetActive(true);
+                }
+                else
+                {
+                    romanceText.gameObject.SetActive(false);
                 }
             }
 
-            Debug.Log("No specific ending met - showing default ending");
-            // TODO: 기본 엔딩 표시
+            // 페이드인 효과 (CanvasGroup 사용)
+            var canvasGroup = endingPanel.GetComponent<CanvasGroup>();
+            if (canvasGroup != null)
+            {
+                StartCoroutine(FadeInEnding(canvasGroup));
+            }
+
+            Debug.Log($"[GameController] Ending displayed: {result.endingTitle}");
+        }
+
+        /// <summary>
+        /// 엔딩 패널 페이드인
+        /// </summary>
+        IEnumerator FadeInEnding(CanvasGroup canvasGroup)
+        {
+            canvasGroup.alpha = 0f;
+            canvasGroup.interactable = true;
+            canvasGroup.blocksRaycasts = true;
+
+            float elapsed = 0f;
+            float duration = 1.5f;
+
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                canvasGroup.alpha = Mathf.Lerp(0f, 1f, elapsed / duration);
+                yield return null;
+            }
+
+            canvasGroup.alpha = 1f;
         }
 
         /// <summary>

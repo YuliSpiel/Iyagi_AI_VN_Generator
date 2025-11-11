@@ -308,7 +308,7 @@ namespace IyagiAI.Runtime
             float targetScale = GetScaleForSize(sizeValue);
 
             // 스프라이트 로드 (TestResources에서 직접 로드, 생성 안 함!)
-            string spritePath = $"TestResources/Characters/{charName}/{lookValue}";
+            string spritePath = $"TestResources/Standing/{charName}/{lookValue}";
             Debug.Log($"[DialogueUI] Loading character sprite: {spritePath}");
 
             Sprite characterSprite = Resources.Load<Sprite>(spritePath);
@@ -316,7 +316,13 @@ namespace IyagiAI.Runtime
             if (characterSprite != null)
             {
                 charImage.sprite = characterSprite;
-                charImage.SetNativeSize();
+
+                // 슬롯 크기에 맞춰 이미지 크기 설정 (바닥에 붙이고 영역 안에 맞춤)
+                RectTransform imageRect = charImage.GetComponent<RectTransform>();
+                imageRect.anchorMin = Vector2.zero;
+                imageRect.anchorMax = Vector2.one;
+                imageRect.sizeDelta = Vector2.zero; // 슬롯 전체 채우기
+                imageRect.anchoredPosition = Vector2.zero;
 
                 // ✅ 스케일 적용 (발화 중인 캐릭터 강조)
                 charImage.transform.localScale = Vector3.one * targetScale;
@@ -329,7 +335,7 @@ namespace IyagiAI.Runtime
                 Debug.LogWarning($"[DialogueUI] ❌ Character sprite not found: {spritePath}");
 
                 // 디버깅: 사용 가능한 스프라이트 목록 표시
-                var allSprites = Resources.LoadAll<Sprite>($"TestResources/Characters/{charName}");
+                var allSprites = Resources.LoadAll<Sprite>($"TestResources/Standing/{charName}");
                 Debug.Log($"[DialogueUI] Available sprites for {charName}: {allSprites.Length}");
                 foreach (var s in allSprites)
                 {

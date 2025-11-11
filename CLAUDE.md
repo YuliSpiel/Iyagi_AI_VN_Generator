@@ -2185,9 +2185,240 @@ public class Step4_PlayerCharacter : MonoBehaviour
 
 ---
 
+## 🎮 챕터 분기 및 캐싱 전략
+
+### 핵심 설계 원칙
+
+**Core Value 기반 분기 + 친밀도 기반 엔딩**
+
+1. **챕터 분기는 Core Value만 고려**
+   - 캐시 키: `{ProjectGuid}_Ch{ChapterNum}_{ValueHash}`
+   - 예: `abc123_Ch2_A1B2C3D4` (정의 50, 출세 10)
+   - 친밀도가 달라도 같은 Core Value면 동일한 챕터 캐시 재사용
+
+2. **친밀도는 챕터 진행 중 누적**
+   - 선택지에서 `affection_impact` 적용
+   - AI가 NPC 친밀도를 참고하여 대사 톤 조정 (참고 정보로만 사용)
+   - 큰 스토리 분기에는 영향 없음
+
+3. **엔딩 판정 시 친밀도 반영**
+   - 마지막 챕터 완료 후 엔딩 분기
+   - Core Value (주요 결정 요인) + 최고 친밀도 NPC (로맨스 파트너) 조합
+
+### 캐시 키 생성 로직
+
+```csharp
+public class GameStateSnapshot
+{
+    public int currentChapter;
+    public int currentLineId;
+    public Dictionary<string, int> coreValueScores;      // 캐시 키에 포함
+    public Dictionary<string, int> npcAffections;       // 캐시 키에 미포함
+    public List<string> previousChoices;
+    public List<int> unlockedEndings;
+    public Dictionary<string, bool> flags;
+
+    /// <summary>
+    /// GameState를 캐시 키로 변환 (Core Value만 반영, 친밀도 제외)
+    /// 10단위로 반올림하여 비슷한 상태는 같은 캐시 사용
+    /// </summary>
+    public string GetCacheHash()
+    {
+        // Core Value 점수만 사용
+        var roundedValues = coreValueScores
+            .OrderBy(kv => kv.Key)  // 순서 고정
+            .Select(kv => $"{kv.Key}:{(kv.Value / 10) * 10}");  // 10단위 반올림
+
+        string stateString = string.Join(",", roundedValues);
+        int hash = stateString.GetHashCode();
+
+        return hash.ToString("X8"); // "A1B2C3D4" 형식
+    }
+}
+```
+
+### 캐시 파일 예시
+
+```
+{persistentDataPath}/
+├── abc123_Ch1_00000000.json  // 챕터1 (초기 상태, 모든 플레이 동일)
+├── abc123_Ch2_A1B2C3D4.json  // 챕터2 (정의 50, 출세 10)
+├── abc123_Ch2_D4C3B2A1.json  // 챕터2 (정의 10, 출세 50)
+├── abc123_Ch3_12345678.json  // 챕터3 (또 다른 밸류 조합)
+└── abc123_Ch3_ABCDEF00.json  // 챕터3 (또 다른 밸류 조합)
+```
+
+**장점:**
+- ✅ **API 비용 최소화**: 같은 밸류 조합 재플레이 시 캐시 재사용
+- ✅ **빠른 로딩**: 캐시된 챕터는 즉시 로드
+- ✅ **친밀도 다양성 유지**: 친밀도가 달라도 캐시 공유
+- ✅ **자연스러운 플레이**: 스토리는 밸류 중심, 친밀도는 NPC 반응에만 영향
+
+---
+
+## 💕 친밀도 시스템 (Affection System)
+
+### 기본 원칙
+
+**친밀도는 "엔딩 판정"과 "NPC 반응 톤"에만 사용**
+
+1. **챕터 분기에 영향 없음**: 캐시 키에 포함되지 않음
+2. **선택지를 통해 누적**: `affection_impact` 필드로 증감
+3. **AI가 대사 톤 조정**: 프롬프트에 참고 정보로 제공
+4. **엔딩에서 큰 역할**: 로맨스 엔딩 / 트루 엔딩 분기
+
+### AI 데이터 스키마 확장
+
+```csharp
+[System.Serializable]
+public class AIChoice
+{
+    public string text;
+    public Dictionary<string, int> value_impact;      // Core Value 변화
+    public Dictionary<string, int> affection_impact;  // 친밀도 변화 (새로 추가)
+    public int next_line_id;
+}
+```
+
+### AI 생성 JSON 예시
+
+```json
+{
+  "line_id": 5,
+  "dialogue_text": "어떻게 할까?",
+  "speaker_name": "주인공",
+  "choices": [
+    {
+      "text": "Hans와 함께 조사한다",
+      "value_impact": {"정의": 5, "출세": 0},
+      "affection_impact": {"Hans": 10},
+      "next_line_id": 10
+    },
+    {
+      "text": "Maria에게 조언을 구한다",
+      "value_impact": {"정의": 3, "출세": 2},
+      "affection_impact": {"Maria": 8},
+      "next_line_id": 15
+    },
+    {
+      "text": "혼자 조사한다",
+      "value_impact": {"정의": 0, "출세": 5},
+      "affection_impact": {},
+      "next_line_id": 20
+    }
+  ]
+}
+```
+
+### 엔딩 판정 로직
+
+```csharp
+public class EndingManager
+{
+    public EndingType DetermineEnding(GameStateSnapshot finalState, VNProjectData projectData)
+    {
+        // 1. 최고 Core Value 찾기
+        var topValue = finalState.coreValueScores.OrderByDescending(kv => kv.Value).First();
+        string dominantValue = topValue.Key;
+
+        // 2. 최고 친밀도 NPC 찾기 (로맨스 가능한 캐릭터만)
+        var romanceableNPCs = projectData.npcs.Where(n => n.isRomanceable);
+        string topRomanceNPC = null;
+        int maxAffection = -999;
+
+        foreach (var npc in romanceableNPCs)
+        {
+            if (finalState.npcAffections.TryGetValue(npc.characterName, out int affection))
+            {
+                if (affection > maxAffection)
+                {
+                    maxAffection = affection;
+                    topRomanceNPC = npc.characterName;
+                }
+            }
+        }
+
+        // 3. 엔딩 결정
+        if (dominantValue == projectData.trueValueName && maxAffection >= 80)
+        {
+            return new EndingType
+            {
+                type = "True",
+                romancePartner = topRomanceNPC,
+                description = "트루 엔딩 (최고 밸류 + 높은 친밀도)"
+            };
+        }
+        else if (maxAffection >= 60)
+        {
+            return new EndingType
+            {
+                type = $"{dominantValue}_Romance",
+                romancePartner = topRomanceNPC,
+                description = $"{dominantValue} 로맨스 엔딩 (with {topRomanceNPC})"
+            };
+        }
+        else
+        {
+            return new EndingType
+            {
+                type = $"{dominantValue}_Normal",
+                romancePartner = null,
+                description = $"{dominantValue} 일반 엔딩"
+            };
+        }
+    }
+}
+
+[System.Serializable]
+public class EndingType
+{
+    public string type;              // "True", "정의_Romance", "출세_Normal" 등
+    public string romancePartner;    // NPC 이름 또는 null
+    public string description;       // 엔딩 설명
+}
+```
+
+### AI 프롬프트에 친밀도 반영
+
+```csharp
+string BuildChapterPrompt(int chapterNum, GameStateSnapshot state)
+{
+    // ... 기존 프롬프트 ...
+
+    sb.AppendLine($"\n## Current Game State");
+
+    // Core Values (주요 분기 기준)
+    sb.AppendLine("Core Values (MAIN branching factor):");
+    foreach (var kv in state.coreValueScores)
+        sb.AppendLine($"  - {kv.Key}: {kv.Value}");
+
+    // NPC Affections (참고 정보, 대사 톤에만 영향)
+    sb.AppendLine("\nNPC Relationships (for dialogue tone ONLY, NOT for branching):");
+    foreach (var kv in state.npcAffections)
+    {
+        string relationship = kv.Value >= 70 ? "very close" :
+                             kv.Value >= 40 ? "friendly" :
+                             kv.Value >= 10 ? "neutral" : "distant";
+        sb.AppendLine($"  - {kv.Key}: {kv.Value} ({relationship})");
+    }
+
+    sb.AppendLine($"\n## Instructions");
+    sb.AppendLine($"- Story branching should be based on Core Values ONLY");
+    sb.AppendLine($"- Use NPC affection levels to adjust dialogue tone/reactions:");
+    sb.AppendLine($"  * High affection: warmer, more supportive dialogue");
+    sb.AppendLine($"  * Low affection: cooler, more formal dialogue");
+    sb.AppendLine($"- Affection-based major branching will be handled at ending determination");
+    sb.AppendLine($"- Include affection_impact in choice options when appropriate");
+
+    return sb.ToString();
+}
+```
+
+---
+
 ## 🎯 챕터 생성 및 캐싱 시스템
 
-### ChapterGenerationManager
+### ChapterGenerationManager (업데이트됨)
 
 ```csharp
 public class ChapterGenerationManager : MonoBehaviour
@@ -4912,5 +5143,220 @@ OnWizardComplete()
 
 ---
 
-**Last Updated**: 2025-01-10
-**Document Version**: 2.3 (Parallel Generation Architecture - Implementation Complete)
+## 🔄 Scene-Based Chapter Generation (2025-01-11)
+
+### 문제: JSON 응답 잘림 (Response Truncation)
+
+**발생 상황**:
+- Gemini API로 전체 챕터(10-15개 대사) 생성 시 응답이 3180자 이상으로 길어짐
+- API 응답이 중간에 잘려서 반환됨 (예: `"character1_expressi` 에서 끊김)
+- 잘린 JSON은 파싱 불가능 → 챕터 생성 실패
+
+**에러 로그**:
+```
+JSON parsing error: JSON parse error: Missing a comma or ']' after an array element.
+[JSON Repair] Brackets: [8] vs [7], Braces: {16} vs {15}
+[ChapterGenerationManager] Scene 1 response length: 3180
+```
+
+### 해결: 씬 단위 분할 생성 (Scene-Based Generation)
+
+챕터를 **3개 씬으로 분할**하여 각 씬당 3-5개 대사만 생성합니다.
+
+**구현 위치**: `Assets/Script/Runtime/ChapterGenerationManager.cs`
+
+#### 변경된 Generation Flow
+
+**Before (문제)**:
+```
+1회 API 호출
+└─ Chapter 1 전체 (10-15 lines)
+   └─ JSON 3180자 → 응답 잘림 → 파싱 실패 ❌
+```
+
+**After (해결)**:
+```
+Scene 1 API 호출 → 3-5 lines → JSON ~1000자 → 성공 ✅
+    ↓ (Scene 1 컨텍스트 전달)
+Scene 2 API 호출 → 3-5 lines → JSON ~1000자 → 성공 ✅
+    ↓ (Scene 1+2 컨텍스트 전달)
+Scene 3 API 호출 → 3-5 lines → JSON ~1000자 → 성공 ✅
+    ↓
+총 9-15 lines 집계 → 완성된 챕터
+```
+
+#### 주요 코드 변경
+
+**1. `GenerateOrLoadChapter()` 메서드 수정** (lines 38-136)
+
+```csharp
+public IEnumerator GenerateOrLoadChapter(int chapterId, GameStateSnapshot state, System.Action<List<DialogueRecord>> onComplete)
+{
+    // 캐시 확인 로직...
+
+    // 3개 씬으로 분할 생성
+    int totalScenes = 3;
+    List<DialogueRecord> allRecords = new List<DialogueRecord>();
+    string previousScenesContext = "";
+
+    for (int sceneNum = 1; sceneNum <= totalScenes; sceneNum++)
+    {
+        // 씬별 프롬프트 생성
+        string scenePrompt = BuildScenePrompt(chapterId, sceneNum, totalScenes, state, previousScenesContext);
+
+        // API 호출
+        yield return geminiClient.GenerateContent(scenePrompt, ...);
+
+        // 컨텍스트 업데이트 (다음 씬에 전달)
+        previousScenesContext += $"\n=== Scene {sceneNum} ===\n";
+        foreach (var rec in sceneRecords)
+        {
+            previousScenesContext += $"{rec.Get("Speaker")}: {rec.Get("ParsedLine_ENG")}\n";
+        }
+
+        // 씬 결과 집계
+        allRecords.AddRange(sceneRecords);
+    }
+
+    // 전체 챕터 캐싱 및 반환
+    onComplete?.Invoke(allRecords);
+}
+```
+
+**2. `BuildScenePrompt()` 메서드 추가** (lines 138-238)
+
+```csharp
+private string BuildScenePrompt(int chapterId, int sceneNumber, int totalScenes, GameStateSnapshot state, string previousScenes = "")
+{
+    // 게임 정보 (제목, 줄거리, 캐릭터, 가치)
+    // ...
+
+    // 이전 씬 컨텍스트 (있으면)
+    string contextSection = "";
+    if (!string.IsNullOrEmpty(previousScenes))
+    {
+        contextSection = $@"
+# Previous Scenes in This Chapter
+{previousScenes}
+
+Continue the story naturally from where it left off.
+";
+    }
+
+    string prompt = $@"You are a visual novel story generator.
+
+# Game Information
+- Title: {projectData.gameTitle}
+- Premise: {projectData.gamePremise}
+...
+
+{contextSection}
+
+# Task
+Generate Scene {sceneNumber} of {totalScenes} for Chapter {chapterId}.
+Output ONLY a JSON array of 3-5 dialogue lines (IMPORTANT: keep it short!).
+
+[JSON format...]
+
+Important:
+- Generate ONLY 3-5 dialogue lines for this scene (keep JSON short!)
+- Include 1-2 choice points if appropriate
+- Output ONLY the JSON array, no text before or after
+- CRITICAL: Ensure JSON is valid and properly closed with ]";
+
+    return prompt;
+}
+```
+
+#### Context Accumulation (컨텍스트 누적)
+
+각 씬 생성 시 이전 씬의 대화 내역을 프롬프트에 포함하여 스토리 연속성을 유지합니다.
+
+**Scene 1 프롬프트**:
+```
+# Task
+Generate Scene 1 of 3 for Chapter 1.
+Output ONLY a JSON array of 3-5 dialogue lines.
+```
+
+**Scene 2 프롬프트**:
+```
+# Previous Scenes in This Chapter
+=== Scene 1 ===
+Player: 안녕하세요.
+NPC: 반갑습니다.
+
+Continue the story naturally from where it left off.
+
+# Task
+Generate Scene 2 of 3 for Chapter 1.
+Output ONLY a JSON array of 3-5 dialogue lines.
+```
+
+**Scene 3 프롬프트**:
+```
+# Previous Scenes in This Chapter
+=== Scene 1 ===
+Player: 안녕하세요.
+NPC: 반갑습니다.
+
+=== Scene 2 ===
+Player: 도움이 필요해요.
+NPC: 무엇을 도와드릴까요?
+
+Continue the story naturally from where it left off.
+
+# Task
+Generate Scene 3 of 3 for Chapter 1.
+Output ONLY a JSON array of 3-5 dialogue lines.
+```
+
+#### 장점
+
+1. **응답 길이 제어**: 각 씬당 JSON ~1000자로 제한 → 잘림 방지
+2. **스토리 연속성**: 이전 씬 컨텍스트 전달 → 자연스러운 흐름
+3. **에러 복구**: 한 씬 실패해도 다른 씬은 정상 생성 가능
+4. **점진적 생성**: 각 씬별 진행 상황 로그 확인 가능
+
+#### 예상 로그 출력
+
+```
+[ChapterGenerationManager] Generating chapter 1 in 3 scenes
+[ChapterGenerationManager] Generating scene 1/3
+[ChapterGenerationManager] Scene 1 response length: 1024
+[ChapterGenerationManager] Scene 1: 4 records
+[ChapterGenerationManager] Generating scene 2/3
+[ChapterGenerationManager] Scene 2 response length: 987
+[ChapterGenerationManager] Scene 2: 3 records
+[ChapterGenerationManager] Generating scene 3/3
+[ChapterGenerationManager] Scene 3 response length: 1156
+[ChapterGenerationManager] Scene 3: 5 records
+[ChapterGenerationManager] ✅ Chapter 1 complete: 12 total records
+```
+
+#### 캐싱 시스템과의 통합
+
+씬별로 생성하지만 **캐싱은 전체 챕터 단위**로 수행합니다:
+
+```csharp
+// 모든 씬 생성 완료 후
+if (allRecords.Count > 0)
+{
+    // 전체 챕터를 하나의 ChapterData로 캐싱
+    var chapterData = new ChapterData(chapterId, allRecords);
+    chapterData.stateSnapshot = state;
+    chapterCache[cacheKey] = chapterData;
+
+    // 디스크에 저장
+    SaveChapterToFile(cacheKey, chapterData);
+}
+```
+
+**캐시 히트 시**:
+- 씬 분할 생성을 건너뛰고 전체 챕터를 즉시 로드
+- API 호출 0회 → 즉시 게임 시작 가능
+
+---
+
+**Last Updated**: 2025-01-11
+**Document Version**: 2.4 (Scene-Based Generation - JSON Truncation Fix)

@@ -24,6 +24,9 @@ namespace IyagiAI.Runtime
         [Header("Core Values")]
         public List<CoreValue> coreValues = new List<CoreValue>(); // Core Value + Derived Skills
 
+        [Tooltip("트루 엔딩을 위한 Core Value 이름 (예: '정의')")]
+        public string trueValueName; // 트루 엔딩 조건
+
         [Header("Story Structure")]
         public int totalChapters = 4;
         public List<EndingCondition> endings = new List<EndingCondition>(); // 엔딩 조건 리스트
