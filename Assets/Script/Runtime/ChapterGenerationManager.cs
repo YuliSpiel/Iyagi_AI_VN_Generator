@@ -296,8 +296,8 @@ This chapter has a FIXED NARRATIVE ARC that all players experience:
 4. **MANDATORY CHOICE REQUIREMENTS**
    - Each chapter MUST have EXACTLY 3 CHOICES (one in Scene 3, 4, and 5)
    - Each choice MUST have 2 options
-   - Each option MUST affect 1-2 derived skills with changes of 20-30 points
-   - Higher changes ensure diverse endings after 3 chapters (3 choices × 25 points = 75 points difference)
+   - Each option MUST affect 1-2 derived skills with changes of 10-15 points
+   - Balanced changes ensure meaningful progression: 3 chapters × 3 choices × 12 avg = 108 points max per skill
 
 5. **Next ID Management for Branching**
    - When a choice appears, set different next_id values for each option in the ""choices"" array
@@ -314,7 +314,7 @@ Generate Scene {sceneNumber} of {totalScenes} for Chapter {chapterId}.
 
 **CRITICAL for Scene {sceneNumber}:**
 {(sceneNumber == 3 || sceneNumber == 4 || sceneNumber == 5 ? "- This scene MUST include 1 CHOICE with 2 OPTIONS" : "- This scene should NOT have choices (setup or conclusion)")}
-{(sceneNumber == 3 || sceneNumber == 4 || sceneNumber == 5 ? "- Each option MUST have skill_impact with change values of 20-30" : "")}
+{(sceneNumber == 3 || sceneNumber == 4 || sceneNumber == 5 ? "- Each option MUST have skill_impact with change values of 10-15" : "")}
 
 Output ONLY a JSON array of 10 dialogue lines.
 
@@ -340,13 +340,13 @@ Output ONLY a JSON array of 10 dialogue lines.
         ""skill_impact"": [
           {{
             ""skill_name"": ""[USE EXACT SKILL NAME FROM CORE VALUES LIST]"",
-            ""change"": 25
+            ""change"": 12
           }}
         ],
         ""affection_impact"": [
           {{
             ""character_name"": ""CharacterName"",
-            ""change"": 15
+            ""change"": 10
           }}
         ]
       }},
@@ -356,13 +356,13 @@ Output ONLY a JSON array of 10 dialogue lines.
         ""skill_impact"": [
           {{
             ""skill_name"": ""[USE DIFFERENT SKILL FROM CORE VALUES]"",
-            ""change"": 25
+            ""change"": 12
           }}
         ],
         ""affection_impact"": [
           {{
             ""character_name"": ""CharacterName"",
-            ""change"": 15
+            ""change"": 10
           }}
         ]
       }}
@@ -396,17 +396,17 @@ CRITICAL - Choice Impact Rules:
 - ONLY use ""skill_impact"" to affect derived skills
 - Core values are calculated automatically as the sum of their derived skills
 - Available derived skills for this project:{coreValuesInfo}
-- Example skill_impact format (HIGHER VALUES FOR MEANINGFUL PROGRESSION):
+- Example skill_impact format (BALANCED VALUES FOR MEANINGFUL PROGRESSION):
   ""skill_impact"": [
     {{
       ""skill_name"": ""[choose from the derived skills listed above]"",
-      ""change"": 20 to 30
+      ""change"": 10 to 15
     }}
   ]
-- Each choice should affect 1-2 relevant derived skills with HIGH impact (20-30 points)
+- Each choice should affect 1-2 relevant derived skills with BALANCED impact (10-15 points)
 - Use skill names EXACTLY as listed in the Core Values section above
-- With 3 chapters × 3 choices × 25 average points = 225 total points possible per skill
-- This ensures diverse endings based on player choices!";
+- With 3 chapters × 3 choices × 12 average points = 108 total points possible per skill
+- This ensures diverse endings without extreme polarization!";
 
             return prompt;
         }
