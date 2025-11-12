@@ -92,3 +92,24 @@ Assets/Resources/APIConfig.asset.meta
 # 구 버전 호환용 (삭제 예정)
 Assets/Resources/LLMConfig.asset
 Assets/Resources/LLMConfig.asset.meta
+.claude/settings.local.json
+
+# 테스트용 생성 파일 (무시)
+Assets/Resources/TestChapter1.json
+Assets/Resources/TestChapter1.json.meta
+Assets/Resources/Generated/Characters/Lyra/
+Assets/Resources/Generated/Characters/김밥/
+Assets/Resources/Generated/Characters/나진상/
+Assets/Resources/Generated/Characters/루카/
+Assets/Resources/Generated/Characters/아린/
+Assets/Resources/Generated/Characters/아인*
+Assets/Resources/Generated/Characters/엘런/
+Assets/Resources/Generated/Characters/엘리아스*
+Assets/Resources/Generated/Characters/예나/
+Assets/Resources/Generated/Characters/유해리/
+Assets/Resources/Generated/Characters/이시혁/
+Assets/Resources/Generated/Characters/지우/
+Assets/Resources/Generated/Characters/진*
+Assets/Resources/Generated/Characters/하준/
+Assets/Editor/AddDebugInfoPanel.cs
+Assets/Editor/AddDebugInfoPanel.cs.meta
