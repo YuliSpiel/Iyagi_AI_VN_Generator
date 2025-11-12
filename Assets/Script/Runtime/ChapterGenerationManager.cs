@@ -300,13 +300,14 @@ This chapter has a FIXED NARRATIVE ARC that all players experience:
    - Higher changes ensure diverse endings after 3 chapters (3 choices × 25 points = 75 points difference)
 
 5. **Next ID Management for Branching**
-   - When a choice appears, set different next_id values for each option
-   - After branching dialogue (1-2 lines), all branches must point to the SAME convergence line
+   - When a choice appears, set different next_id values for each option in the ""choices"" array
+   - After branching dialogue (1-2 lines), all branch endings MUST have ""next_id"" field pointing to convergence line
    - Example:
-     * Line 5: Choice with [next_id: 6 for A, next_id: 8 for B]
-     * Line 6-7: Branch A dialogue
-     * Line 8-9: Branch B dialogue
-     * Line 10: CONVERGENCE (both line 7 and 9 should have next_id: 10)
+     * Line 5: Choice with [choice A next_id: 6, choice B next_id: 8]
+     * Line 6-7: Branch A dialogue, Line 7 has ""next_id"": 10
+     * Line 8-9: Branch B dialogue, Line 9 has ""next_id"": 10
+     * Line 10: CONVERGENCE (both branches jump here)
+   - CRITICAL: Branch ending lines MUST have explicit ""next_id"" field to prevent sequential progression
 
 # Task
 Generate Scene {sceneNumber} of {totalScenes} for Chapter {chapterId}.
@@ -381,6 +382,14 @@ Important:
 - Output ONLY the JSON array, no text before or after
 - CRITICAL: Ensure JSON is valid and properly closed with ]
 - Omit optional fields if not needed
+- CRITICAL: Branch ending lines MUST have ""next_id"" field to jump to convergence point
+- Example branching structure:
+  * Line 5: {{""text"": ""..."", ""choices"": [{{""next_id"": 6}}, {{""next_id"": 8}}]}}
+  * Line 6: {{""text"": ""Branch A response 1""}}
+  * Line 7: {{""text"": ""Branch A response 2"", ""next_id"": 10}}  ← MUST have next_id
+  * Line 8: {{""text"": ""Branch B response 1""}}
+  * Line 9: {{""text"": ""Branch B response 2"", ""next_id"": 10}}  ← MUST have next_id
+  * Line 10: {{""text"": ""Convergence line""}}  ← Both branches jump here
 
 CRITICAL - Choice Impact Rules:
 - NEVER use ""value_impact"" field - it is deprecated!

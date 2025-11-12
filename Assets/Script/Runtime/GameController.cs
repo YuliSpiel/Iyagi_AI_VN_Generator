@@ -358,13 +358,31 @@ namespace IyagiAI.Runtime
             // 현재 라인의 next_id 확인
             var currentLine = currentChapterRecords[currentLineIndex];
 
-            // NextIndex1 필드가 명시적으로 존재하고 0인 경우만 스토리 종료
-            if (currentLine.Has("NextIndex1") && currentLine.TryGetInt("NextIndex1", out int nextId) && nextId == 0)
+            // NextIndex1 필드가 명시적으로 존재하는 경우 해당 ID로 점프
+            if (currentLine.Has("NextIndex1") && currentLine.TryGetInt("NextIndex1", out int nextId))
             {
-                Debug.Log("[GameController] Story ended (next_id = 0). Showing ending panel...");
-                string endingType = DetermineEndingType();
-                ShowEndingPanel(endingType);
-                return;
+                // nextId == 0이면 스토리 종료
+                if (nextId == 0)
+                {
+                    Debug.Log("[GameController] Story ended (next_id = 0). Showing ending panel...");
+                    string endingType = DetermineEndingType();
+                    ShowEndingPanel(endingType);
+                    return;
+                }
+
+                // nextId가 명시되어 있으면 해당 라인으로 점프
+                for (int i = 0; i < currentChapterRecords.Count; i++)
+                {
+                    if (currentChapterRecords[i].TryGetInt("ID", out int lineId) && lineId == nextId)
+                    {
+                        currentLineIndex = i;
+                        Debug.Log($"[GameController] NextIndex1 found: jumping to line {i} (ID {nextId})");
+                        ShowCurrentLine();
+                        return;
+                    }
+                }
+
+                Debug.LogWarning($"[GameController] NextIndex1 ID {nextId} not found in current chapter!");
             }
 
             // 챕터 끝 체크
@@ -384,7 +402,9 @@ namespace IyagiAI.Runtime
                 return;
             }
 
+            // NextIndex1이 없으면 단순히 다음 라인으로 (순차 진행)
             currentLineIndex++;
+            Debug.Log($"[GameController] Sequential progression to line {currentLineIndex}");
             ShowCurrentLine();
         }
 

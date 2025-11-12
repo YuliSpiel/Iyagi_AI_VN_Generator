@@ -157,8 +157,15 @@ namespace IyagiAI.AISystem
                         // 선택지 없으면 다음 라인으로 자동 진행
                         record.Fields["Auto"] = "TRUE";
 
-                        // 다음 라인이 있으면 자동 연결 (마지막 라인이 아니면)
-                        if (i < wrapper.lines.Length - 1)
+                        // AI가 명시적으로 next_id를 지정했으면 사용
+                        if (line.next_id > 0)
+                        {
+                            int actualNextId = baseId + startOffset + line.next_id;
+                            record.Fields["NextIndex1"] = actualNextId.ToString();
+                            Debug.Log($"[AIDataConverter] Line {i}: explicit next_id={line.next_id} → {actualNextId}");
+                        }
+                        // next_id가 없으면 순차 진행 (마지막 라인이 아닌 경우)
+                        else if (i < wrapper.lines.Length - 1)
                         {
                             record.Fields["NextIndex1"] = (baseId + startOffset + i + 1).ToString();
                         }
@@ -267,6 +274,9 @@ namespace IyagiAI.AISystem
             public string bg_name;
             public string bgm_name;
             public string sfx_name;
+
+            // 다음 라인 ID (분기 수렴용, 선택지가 없는 라인도 명시 가능)
+            public int next_id;
 
             // 선택지
             public ChoiceData[] choices;
