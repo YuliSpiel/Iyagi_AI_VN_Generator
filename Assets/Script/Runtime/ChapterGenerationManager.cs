@@ -24,7 +24,7 @@ namespace IyagiAI.Runtime
         public NanoBananaClient nanoBananaClient;
 
         [Header("Cache Settings")]
-        public bool enableCaching = true;
+        public bool enableCaching = true; // ✅ 캐싱 활성화 (Chapter-Level Convergence 구조)
         private string CACHE_FOLDER => Path.Combine(Application.persistentDataPath, "Chapters", projectData.projectGuid);
 
         void Start()
@@ -61,10 +61,11 @@ namespace IyagiAI.Runtime
             int totalScenes = 3;
             List<DialogueRecord> allRecords = new List<DialogueRecord>();
             string previousScenesContext = "";
+            int cumulativeLineCount = 0; // 누적된 라인 수 (씬 간 ID 중복 방지용)
 
             for (int sceneNum = 1; sceneNum <= totalScenes; sceneNum++)
             {
-                Debug.Log($"[ChapterGenerationManager] Generating scene {sceneNum}/{totalScenes}");
+                Debug.Log($"[ChapterGenerationManager] Generating scene {sceneNum}/{totalScenes} (startOffset: {cumulativeLineCount})");
 
                 string scenePrompt = BuildScenePrompt(chapterId, sceneNum, totalScenes, state, previousScenesContext);
 
@@ -76,8 +77,8 @@ namespace IyagiAI.Runtime
                     (jsonResponse) => {
                         Debug.Log($"[ChapterGenerationManager] Scene {sceneNum} response length: {jsonResponse?.Length ?? 0}");
 
-                        // JSON 추출 및 변환
-                        sceneRecords = AIDataConverter.FromAIJson(jsonResponse, chapterId);
+                        // JSON 추출 및 변환 (startOffset 전달)
+                        sceneRecords = AIDataConverter.FromAIJson(jsonResponse, chapterId, cumulativeLineCount);
 
                         if (sceneRecords != null && sceneRecords.Count > 0)
                         {
@@ -103,7 +104,26 @@ namespace IyagiAI.Runtime
 
                 if (sceneRecords != null && sceneRecords.Count > 0)
                 {
+                    // 이전 씬의 마지막 라인과 현재 씬의 첫 라인을 연결
+                    if (allRecords.Count > 0 && sceneNum > 1)
+                    {
+                        var lastRecordOfPreviousScene = allRecords[allRecords.Count - 1];
+                        var firstRecordOfCurrentScene = sceneRecords[0];
+
+                        // 이전 씬 마지막 라인에 NextIndex1이 없으면 현재 씬 첫 라인으로 연결
+                        if (!lastRecordOfPreviousScene.Has("NextIndex1") || string.IsNullOrEmpty(lastRecordOfPreviousScene.Get("NextIndex1")))
+                        {
+                            lastRecordOfPreviousScene.Fields["NextIndex1"] = firstRecordOfCurrentScene.Get("ID");
+                            lastRecordOfPreviousScene.Fields["Auto"] = "TRUE";
+                            Debug.Log($"[ChapterGenerationManager] Connected Scene {sceneNum - 1} last line to Scene {sceneNum} first line");
+                        }
+                    }
+
                     allRecords.AddRange(sceneRecords);
+
+                    // 다음 씬을 위해 누적 라인 수 업데이트
+                    cumulativeLineCount += sceneRecords.Count;
+                    Debug.Log($"[ChapterGenerationManager] Cumulative line count: {cumulativeLineCount}");
                 }
                 else
                 {
@@ -136,6 +156,69 @@ namespace IyagiAI.Runtime
         }
 
         /// <summary>
+        /// 챕터 요약 생성 (다음 챕터의 맥락으로 사용)
+        /// </summary>
+        public IEnumerator GenerateChapterSummary(int chapterId, List<DialogueRecord> records, System.Action<string> onComplete)
+        {
+            if (records == null || records.Count == 0)
+            {
+                onComplete?.Invoke("");
+                yield break;
+            }
+
+            // 챕터 전체 대사를 요약용 텍스트로 변환
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine($"Chapter {chapterId} Dialogue:");
+            foreach (var rec in records)
+            {
+                string speaker = rec.Get("NameTag") ?? rec.Get("Speaker") ?? "Narrator";
+                string text = rec.Get("ParsedLine_ENG") ?? rec.Get("Line_ENG") ?? "";
+                if (!string.IsNullOrEmpty(text))
+                {
+                    sb.AppendLine($"{speaker}: {text}");
+                }
+            }
+
+            string chapterDialogue = sb.ToString();
+
+            // AI에게 요약 요청
+            string summaryPrompt = $@"You are a story summarizer for a visual novel game.
+
+Summarize the following chapter in 2-3 sentences that capture:
+1. The main events that happened
+2. Key character interactions or developments
+3. Any important plot points or revelations
+
+Keep it concise and focused on story progression (not player choices).
+
+Chapter Dialogue:
+{chapterDialogue}
+
+Output ONLY the summary text (no JSON, no formatting).";
+
+            bool completed = false;
+            string summary = "";
+
+            yield return geminiClient.GenerateContent(
+                summaryPrompt,
+                (response) => {
+                    summary = response.Trim();
+                    completed = true;
+                },
+                (error) => {
+                    Debug.LogWarning($"[ChapterGenerationManager] Failed to generate summary: {error}");
+                    summary = $"Chapter {chapterId} completed."; // Fallback
+                    completed = true;
+                }
+            );
+
+            yield return new WaitUntil(() => completed);
+
+            Debug.Log($"[ChapterGenerationManager] Chapter {chapterId} Summary: {summary}");
+            onComplete?.Invoke(summary);
+        }
+
+        /// <summary>
         /// 씬별 프롬프트 빌드 (3-5개 대사만 생성)
         /// </summary>
         private string BuildScenePrompt(int chapterId, int sceneNumber, int totalScenes, GameStateSnapshot state, string previousScenes = "")
@@ -147,8 +230,15 @@ namespace IyagiAI.Runtime
                 characterList += $", {npc.characterName}";
             }
 
-            // Core Values 목록
-            string coreValuesList = string.Join(", ", projectData.coreValues.Select(v => v.name));
+            // Core Values 및 Derived Skills 목록
+            string coreValuesInfo = "";
+            foreach (var value in projectData.coreValues)
+            {
+                string skills = value.derivedSkills != null && value.derivedSkills.Count > 0
+                    ? string.Join(", ", value.derivedSkills)
+                    : "none";
+                coreValuesInfo += $"\n  - {value.name}: [{skills}]";
+            }
 
             // 게임 상태 요약
             string stateInfo = state != null ? state.ToPromptString() : "Initial chapter";
@@ -174,14 +264,58 @@ Continue the story naturally from where it left off.
 - Tone: {projectData.tone}
 - Total Chapters: {projectData.totalChapters}
 - Characters: {characterList}
-- Core Values: {coreValuesList}
+- Core Values and Derived Skills:{coreValuesInfo}
 
 # Current State
 {stateInfo}
 {contextSection}
+
+# CRITICAL - Chapter-Level Convergence Structure
+This chapter has a FIXED NARRATIVE ARC that all players experience:
+
+1. **Choices affect RELATIONSHIPS and VALUES, NOT the main plot**
+   - Player choices should change dialogue tone, character reactions, and skill/affection scores
+   - BUT all players must reach the same key story events and chapter ending
+
+2. **Branching → Convergence Pattern**
+   - After each choice, create 2-3 different dialogue responses reflecting the choice
+   - Then CONVERGE back to the main narrative within 1-2 lines
+   - Example:
+     * Line 10: ""What do you do?"" → [Choice A / Choice B]
+     * Line 11a (Choice A): ""You bravely charge forward!""
+     * Line 11b (Choice B): ""You carefully retreat!""
+     * Line 12 (CONVERGENCE): ""Either way, you spot the enemy's weakness."" ← Both paths merge here
+
+3. **Chapter Arc Structure (TOTAL 6 SCENES PER CHAPTER)**
+   Scene 1-2: Common introduction (8-10 lines, no choices)
+   Scene 3: FIRST CHOICE → branch → converge (10 lines with 1 choice)
+   Scene 4: SECOND CHOICE → branch → converge (10 lines with 1 choice)
+   Scene 5: THIRD CHOICE → branch → converge (10 lines with 1 choice)
+   Scene 6: Final convergence (8-10 lines, no choices)
+
+4. **MANDATORY CHOICE REQUIREMENTS**
+   - Each chapter MUST have EXACTLY 3 CHOICES (one in Scene 3, 4, and 5)
+   - Each choice MUST have 2 options
+   - Each option MUST affect 1-2 derived skills with changes of 20-30 points
+   - Higher changes ensure diverse endings after 3 chapters (3 choices × 25 points = 75 points difference)
+
+5. **Next ID Management for Branching**
+   - When a choice appears, set different next_id values for each option
+   - After branching dialogue (1-2 lines), all branches must point to the SAME convergence line
+   - Example:
+     * Line 5: Choice with [next_id: 6 for A, next_id: 8 for B]
+     * Line 6-7: Branch A dialogue
+     * Line 8-9: Branch B dialogue
+     * Line 10: CONVERGENCE (both line 7 and 9 should have next_id: 10)
+
 # Task
 Generate Scene {sceneNumber} of {totalScenes} for Chapter {chapterId}.
-Output ONLY a JSON array of 3-5 dialogue lines (IMPORTANT: keep it short!).
+
+**CRITICAL for Scene {sceneNumber}:**
+{(sceneNumber == 3 || sceneNumber == 4 || sceneNumber == 5 ? "- This scene MUST include 1 CHOICE with 2 OPTIONS" : "- This scene should NOT have choices (setup or conclusion)")}
+{(sceneNumber == 3 || sceneNumber == 4 || sceneNumber == 5 ? "- Each option MUST have skill_impact with change values of 20-30" : "")}
+
+Output ONLY a JSON array of 10 dialogue lines.
 
 [
   {{
@@ -200,18 +334,34 @@ Output ONLY a JSON array of 3-5 dialogue lines (IMPORTANT: keep it short!).
     ""sfx_name"": ""sfx name (optional)"",
     ""choices"": [
       {{
-        ""text"": ""choice text"",
-        ""next_id"": {chapterId * 1000 + 50},
-        ""value_impact"": [
+        ""text"": ""Choice A text (decisive action)"",
+        ""next_id"": (line_id + 1),
+        ""skill_impact"": [
           {{
-            ""value_name"": ""Courage"",
-            ""change"": 10
+            ""skill_name"": ""[USE EXACT SKILL NAME FROM CORE VALUES LIST]"",
+            ""change"": 25
           }}
         ],
         ""affection_impact"": [
           {{
             ""character_name"": ""CharacterName"",
-            ""change"": 10
+            ""change"": 15
+          }}
+        ]
+      }},
+      {{
+        ""text"": ""Choice B text (alternative approach)"",
+        ""next_id"": (line_id + 3),
+        ""skill_impact"": [
+          {{
+            ""skill_name"": ""[USE DIFFERENT SKILL FROM CORE VALUES]"",
+            ""change"": 25
+          }}
+        ],
+        ""affection_impact"": [
+          {{
+            ""character_name"": ""CharacterName"",
+            ""change"": 15
           }}
         ]
       }}
@@ -227,12 +377,27 @@ Output ONLY a JSON array of 3-5 dialogue lines (IMPORTANT: keep it short!).
 ]
 
 Important:
-- Generate ONLY 3-5 dialogue lines for this scene (keep JSON short!)
-- Include 1-2 choice points if appropriate for this scene
-- Include CG only if this is a dramatic climax
+- Generate EXACTLY 10 dialogue lines for this scene
 - Output ONLY the JSON array, no text before or after
 - CRITICAL: Ensure JSON is valid and properly closed with ]
-- Omit optional fields if not needed";
+- Omit optional fields if not needed
+
+CRITICAL - Choice Impact Rules:
+- NEVER use ""value_impact"" field - it is deprecated!
+- ONLY use ""skill_impact"" to affect derived skills
+- Core values are calculated automatically as the sum of their derived skills
+- Available derived skills for this project:{coreValuesInfo}
+- Example skill_impact format (HIGHER VALUES FOR MEANINGFUL PROGRESSION):
+  ""skill_impact"": [
+    {{
+      ""skill_name"": ""[choose from the derived skills listed above]"",
+      ""change"": 20 to 30
+    }}
+  ]
+- Each choice should affect 1-2 relevant derived skills with HIGH impact (20-30 points)
+- Use skill names EXACTLY as listed in the Core Values section above
+- With 3 chapters × 3 choices × 25 average points = 225 total points possible per skill
+- This ensures diverse endings based on player choices!";
 
             return prompt;
         }
@@ -249,8 +414,15 @@ Important:
                 characterList += $", {npc.characterName}";
             }
 
-            // Core Values 목록
-            string coreValuesList = string.Join(", ", projectData.coreValues.Select(v => v.name));
+            // Core Values 및 Derived Skills 목록
+            string coreValuesInfo = "";
+            foreach (var value in projectData.coreValues)
+            {
+                string skills = value.derivedSkills != null && value.derivedSkills.Count > 0
+                    ? string.Join(", ", value.derivedSkills)
+                    : "none";
+                coreValuesInfo += $"\n  - {value.name}: [{skills}]";
+            }
 
             // 게임 상태 요약
             string stateInfo = state != null ? state.ToPromptString() : "Initial chapter";
@@ -264,7 +436,7 @@ Important:
 - Tone: {projectData.tone}
 - Total Chapters: {projectData.totalChapters}
 - Characters: {characterList}
-- Core Values: {coreValuesList}
+- Core Values and Derived Skills:{coreValuesInfo}
 
 # Current State
 {stateInfo}
@@ -292,9 +464,9 @@ Output ONLY a JSON array of dialogue lines in this exact format:
       {{
         ""text"": ""choice text"",
         ""next_id"": {chapterId * 1000 + 50},
-        ""value_impact"": [
+        ""skill_impact"": [
           {{
-            ""value_name"": ""Courage"",
+            ""skill_name"": ""Swordsmanship"",
             ""change"": 10
           }}
         ],
@@ -486,12 +658,253 @@ Resolution: 1920×1080.";
         // ===== 캐시 키 생성 =====
 
         /// <summary>
-        /// 캐시 키 생성: {ProjectGuid}_Ch{ChapterNum}_{ValueHash}
+        /// 캐시 키 생성: {ProjectGuid}_Ch{ChapterNum}
+        /// Chapter-Level Convergence: Core Value 무시, 챕터 번호만 사용
         /// </summary>
         private string GenerateCacheKey(int chapterId, GameStateSnapshot state)
         {
-            string valueHash = state != null ? state.GetCacheHash() : "00000000";
-            return $"{projectData.projectGuid}_Ch{chapterId}_{valueHash}";
+            // ✅ 같은 챕터면 같은 캐시 사용 (Core Value 상태 무시)
+            return $"{projectData.projectGuid}_Ch{chapterId}";
+        }
+
+        // ===== 엔딩 씬 생성 =====
+
+        [Header("Ending Database")]
+        public EndingSceneDatabase endingDatabase;
+
+        /// <summary>
+        /// 엔딩 씬 로드 (미리 작성된 엔딩 데이터베이스에서 가져오기, 없으면 AI 생성)
+        /// </summary>
+        public IEnumerator GenerateEndingScene(string endingType, GameStateSnapshot state, System.Action<List<DialogueRecord>> onComplete)
+        {
+            Debug.Log($"[ChapterGenerationManager] Loading ending scene: {endingType}");
+
+            // 엔딩 데이터베이스 확인
+            if (endingDatabase == null)
+            {
+                Debug.LogWarning("[ChapterGenerationManager] Ending database not assigned! Generating ending scene with AI...");
+                yield return GenerateEndingSceneWithAI(endingType, state, onComplete);
+                yield break;
+            }
+
+            // EndingType enum 파싱
+            EndingType parsedEndingType;
+            string dominantCoreValue = null;
+
+            if (endingType.Contains("True"))
+            {
+                parsedEndingType = EndingType.TrueEnding;
+            }
+            else if (endingType.Contains("Value") || endingType.Contains("Ending"))
+            {
+                parsedEndingType = EndingType.ValueEnding;
+                // Dominant Core Value 추출 (예: "용기 Ending" → "용기")
+                dominantCoreValue = GetDominantCoreValue(state);
+            }
+            else
+            {
+                parsedEndingType = EndingType.NormalEnding;
+            }
+
+            // 데이터베이스에서 엔딩 씬 가져오기
+            EndingSceneData endingScene = endingDatabase.GetEndingScene(parsedEndingType, dominantCoreValue);
+
+            if (endingScene == null)
+            {
+                Debug.LogError($"[ChapterGenerationManager] No ending scene found for type: {parsedEndingType}");
+                onComplete?.Invoke(null);
+                yield break;
+            }
+
+            // DialogueRecord로 변환
+            List<DialogueRecord> endingRecords = endingScene.ToDialogueRecords();
+
+            if (endingRecords != null && endingRecords.Count > 0)
+            {
+                Debug.Log($"[ChapterGenerationManager] Loaded ending scene: {endingScene.endingTitle} ({endingRecords.Count} lines)");
+            }
+
+            onComplete?.Invoke(endingRecords);
+            yield break; // 즉시 완료 (AI 호출 없음)
+        }
+
+        /// <summary>
+        /// AI로 엔딩 씬 생성 (EndingDatabase가 없을 때 fallback)
+        /// </summary>
+        private IEnumerator GenerateEndingSceneWithAI(string endingType, GameStateSnapshot state, System.Action<List<DialogueRecord>> onComplete)
+        {
+            Debug.Log($"[ChapterGenerationManager] Generating ending scene with AI: {endingType}");
+
+            // 엔딩 씬 프롬프트 빌드
+            string prompt = BuildEndingPrompt(endingType, state);
+
+            bool completed = false;
+            string jsonResponse = null;
+            string errorMessage = null;
+
+            yield return geminiClient.GenerateContent(
+                prompt,
+                (response) => {
+                    jsonResponse = response;
+                    completed = true;
+                },
+                (error) => {
+                    errorMessage = error;
+                    completed = true;
+                }
+            );
+
+            yield return new WaitUntil(() => completed);
+
+            if (!string.IsNullOrEmpty(errorMessage))
+            {
+                Debug.LogError($"[ChapterGenerationManager] Ending scene generation failed: {errorMessage}");
+                onComplete?.Invoke(null);
+                yield break;
+            }
+
+            // JSON 파싱 및 DialogueRecord 변환
+            List<DialogueRecord> endingRecords = ParseEndingSceneJSON(jsonResponse, 999); // 엔딩 씬 ID = 999
+
+            if (endingRecords != null && endingRecords.Count > 0)
+            {
+                Debug.Log($"[ChapterGenerationManager] ✅ Generated ending scene with {endingRecords.Count} lines");
+            }
+            else
+            {
+                Debug.LogWarning("[ChapterGenerationManager] Ending scene generation produced no records");
+            }
+
+            onComplete?.Invoke(endingRecords);
+        }
+
+        /// <summary>
+        /// 엔딩 씬 JSON 파싱
+        /// </summary>
+        private List<DialogueRecord> ParseEndingSceneJSON(string jsonResponse, int chapterId)
+        {
+            // JSON 추출 (```json ... ``` 제거)
+            int jsonStart = jsonResponse.IndexOf('[');
+            int jsonEnd = jsonResponse.LastIndexOf(']');
+
+            if (jsonStart < 0 || jsonEnd < 0 || jsonEnd <= jsonStart)
+            {
+                Debug.LogError($"[ChapterGenerationManager] Invalid JSON format in ending scene response");
+                return null;
+            }
+
+            string jsonArray = jsonResponse.Substring(jsonStart, jsonEnd - jsonStart + 1);
+
+            // AIDataConverter로 변환
+            return AIDataConverter.FromAIJson(jsonArray, chapterId);
+        }
+
+        /// <summary>
+        /// 가장 높은 Core Value 가져오기
+        /// </summary>
+        private string GetDominantCoreValue(GameStateSnapshot state)
+        {
+            if (state.coreValueScores == null || state.coreValueScores.Count == 0)
+            {
+                return null;
+            }
+
+            var maxValue = state.coreValueScores.OrderByDescending(kv => kv.Value).First();
+            return maxValue.Key;
+        }
+
+        /// <summary>
+        /// 엔딩 씬 프롬프트 빌드
+        /// </summary>
+        private string BuildEndingPrompt(string endingType, GameStateSnapshot state)
+        {
+            // 캐릭터 목록
+            string characterList = $"Player: {projectData.playerCharacter.characterName}";
+            foreach (var npc in projectData.npcs)
+            {
+                characterList += $", {npc.characterName}";
+            }
+
+            // Core Values 점수
+            string coreValuesInfo = "";
+            if (state.coreValueScores != null && state.coreValueScores.Count > 0)
+            {
+                var sortedValues = state.coreValueScores.OrderByDescending(kv => kv.Value);
+                foreach (var kv in sortedValues)
+                {
+                    coreValuesInfo += $"\n  - {kv.Key}: {kv.Value} points";
+                }
+            }
+
+            // 주요 선택지들
+            string choicesInfo = "";
+            if (state.previousChoices != null && state.previousChoices.Count > 0)
+            {
+                int displayCount = Mathf.Min(5, state.previousChoices.Count);
+                choicesInfo = "\n\nKey Choices Made:";
+                for (int i = state.previousChoices.Count - displayCount; i < state.previousChoices.Count; i++)
+                {
+                    choicesInfo += $"\n  - {state.previousChoices[i]}";
+                }
+            }
+
+            // 챕터 요약들
+            string chapterSummaries = "";
+            if (state.chapterSummaries != null && state.chapterSummaries.Count > 0)
+            {
+                chapterSummaries = "\n\nChapter Summaries:";
+                foreach (var kv in state.chapterSummaries)
+                {
+                    chapterSummaries += $"\n  Chapter {kv.Key}: {kv.Value}";
+                }
+            }
+
+            string prompt = $@"You are a visual novel ending scene generator.
+
+# Game Information
+- Title: {projectData.gameTitle}
+- Premise: {projectData.gamePremise}
+- Genre: {projectData.genre}
+- Tone: {projectData.tone}
+- Characters: {characterList}
+
+# Player's Journey
+Core Values Achieved:{coreValuesInfo}{choicesInfo}{chapterSummaries}
+
+# Ending Type: {endingType}
+
+Generate a FINAL ENDING SCENE (5-10 dialogue lines) that:
+1. Reflects the player's journey and choices
+2. Shows the consequences of their Core Value focus
+3. Provides emotional closure
+4. Ends with a final statement or image that captures the essence of this ending
+
+The scene should feel conclusive and satisfying, wrapping up the main story threads.
+
+Output Format (JSON Array):
+[
+  {{
+    ""speaker"": ""character name or narrator"",
+    ""text"": ""dialogue text"",
+    ""character1_name"": ""character name (if visible)"",
+    ""character1_expression"": ""neutral/happy/sad/angry/surprised/embarrassed/thinking"",
+    ""character1_pose"": ""normal/handsonhips/armscrossed/pointing/waving/thinking/surprised"",
+    ""character1_position"": ""Left/Center/Right"",
+    ""character2_name"": """",
+    ""character2_expression"": """",
+    ""character2_pose"": """",
+    ""character2_position"": """",
+    ""bg_name"": ""background name"",
+    ""bgm_name"": ""bgm name"",
+    ""sfx_name"": """",
+    ""next_id"": next_line_id_or_0_for_end
+  }}
+]
+
+IMPORTANT: The last line should have ""next_id"": 0 to indicate the story ends.
+";
+
+            return prompt;
         }
 
         // ===== 캐시 저장/로드 =====

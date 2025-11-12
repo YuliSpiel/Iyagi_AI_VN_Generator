@@ -16,8 +16,9 @@ namespace IyagiAI.AISystem
         /// </summary>
         /// <param name="jsonResponse">Gemini API의 JSON 응답</param>
         /// <param name="chapterId">챕터 ID (1, 2, 3...)</param>
+        /// <param name="startOffset">씬 시작 인덱스 (누적된 이전 씬들의 라인 수)</param>
         /// <returns>DialogueRecord 리스트</returns>
-        public static List<Runtime.DialogueRecord> FromAIJson(string jsonResponse, int chapterId)
+        public static List<Runtime.DialogueRecord> FromAIJson(string jsonResponse, int chapterId, int startOffset = 0)
         {
             AIDialogueWrapper wrapper = null;
 
@@ -77,8 +78,8 @@ namespace IyagiAI.AISystem
 
                     Runtime.DialogueRecord record = new Runtime.DialogueRecord();
 
-                    // 기본 필드
-                    record.Fields["ID"] = (baseId + i).ToString();
+                    // 기본 필드 (startOffset을 더해서 씬 간 ID 중복 방지)
+                    record.Fields["ID"] = (baseId + startOffset + i).ToString();
                     record.Fields["Scene"] = chapterId.ToString();
                     record.Fields["Index"] = i.ToString();
 
@@ -116,7 +117,12 @@ namespace IyagiAI.AISystem
                         {
                             int choiceNum = c + 1;
                             record.Fields[$"Choice{choiceNum}_ENG"] = line.choices[c].text ?? "";
-                            record.Fields[$"Next{choiceNum}"] = line.choices[c].next_id.ToString();
+
+                            // AI가 생성한 next_id를 실제 라인 ID로 변환
+                            // AI의 next_id는 현재 씬 내에서의 상대 인덱스이므로 startOffset을 더함
+                            int aiNextId = line.choices[c].next_id;
+                            int actualNextId = (aiNextId == 0) ? 0 : (baseId + startOffset + aiNextId);
+                            record.Fields[$"Next{choiceNum}"] = actualNextId.ToString();
 
                             // Value Impact 처리
                             if (line.choices[c].value_impact != null)
@@ -150,6 +156,12 @@ namespace IyagiAI.AISystem
                     {
                         // 선택지 없으면 다음 라인으로 자동 진행
                         record.Fields["Auto"] = "TRUE";
+
+                        // 다음 라인이 있으면 자동 연결 (마지막 라인이 아니면)
+                        if (i < wrapper.lines.Length - 1)
+                        {
+                            record.Fields["NextIndex1"] = (baseId + startOffset + i + 1).ToString();
+                        }
                     }
 
                     // CG 정보
