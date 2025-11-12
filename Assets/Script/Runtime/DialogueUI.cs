@@ -95,9 +95,25 @@ namespace IyagiAI.Runtime
         /// </summary>
         public void DisplayRecord(DialogueRecord record, System.Action<int> choiceCallback = null)
         {
+            Debug.Log($"[DialogueUI] DisplayRecord called");
+            Debug.Log($"[DialogueUI] Record has fields: {string.Join(", ", record.Fields.Keys)}");
             currentRecord = record;
             onChoiceSelected = choiceCallback;
             isTextComplete = false;
+
+            // BGM 재생 (BGM 필드 사용 - AIDataConverter에서 매핑됨)
+            string bgmName = record.GetString("BGM");
+            if (!string.IsNullOrEmpty(bgmName))
+            {
+                PlayBGM(bgmName);
+            }
+
+            // SFX 재생 (SFX 필드 사용 - AIDataConverter에서 매핑됨)
+            string sfxName = record.GetString("SFX");
+            if (!string.IsNullOrEmpty(sfxName))
+            {
+                PlaySFX(sfxName);
+            }
 
             // CG 표시
             if (record.HasCG())
@@ -109,19 +125,26 @@ namespace IyagiAI.Runtime
                 HideCG();
             }
 
-            // 배경 변경
-            string bgName = record.GetString("Background");
+            // 배경 변경 (BG 필드 사용 - AIDataConverter에서 매핑됨)
+            string bgName = record.GetString("BG");
+            Debug.Log($"[DialogueUI] BG field value: '{bgName}'");
             if (!string.IsNullOrEmpty(bgName))
             {
                 ChangeBackground(bgName);
+            }
+            else
+            {
+                Debug.LogWarning("[DialogueUI] BG field is empty or null - background will not change");
             }
 
             // 캐릭터 표시
             DisplayCharacters(record);
 
-            // 대화 표시
-            string speaker = record.GetString("Speaker");
-            string dialogue = record.GetString("Dialogue");
+            // 대화 표시 - NameTag와 ParsedLine_ENG 필드 사용
+            string speaker = record.GetString("NameTag");
+            string dialogue = record.GetString("ParsedLine_ENG");
+
+            Debug.Log($"[DialogueUI] Speaker: '{speaker}', Dialogue: '{dialogue}'");
 
             speakerNameText.text = speaker;
 
@@ -176,12 +199,25 @@ namespace IyagiAI.Runtime
 
             // 선택지 표시
             int choiceCount = record.GetChoiceCount();
+            Debug.Log($"[DialogueUI] Displaying {choiceCount} choices");
+
             for (int i = 0; i < choiceButtons.Length; i++)
             {
                 if (i < choiceCount)
                 {
-                    string choiceKey = $"Choice{i + 1}";
-                    choiceTexts[i].text = record.GetString(choiceKey);
+                    // Choice{i}_ENG, Choice{i}_KOR, Choice{i} 순으로 폴백
+                    string choiceText = record.GetString($"Choice{i + 1}_ENG");
+                    if (string.IsNullOrEmpty(choiceText))
+                    {
+                        choiceText = record.GetString($"Choice{i + 1}_KOR");
+                    }
+                    if (string.IsNullOrEmpty(choiceText))
+                    {
+                        choiceText = record.GetString($"Choice{i + 1}");
+                    }
+
+                    Debug.Log($"[DialogueUI] Choice {i + 1}: {choiceText}");
+                    choiceTexts[i].text = choiceText;
                     choiceButtons[i].gameObject.SetActive(true);
                 }
                 else
@@ -196,73 +232,133 @@ namespace IyagiAI.Runtime
 
         void DisplayCharacters(DialogueRecord record)
         {
-            string leftChar = record.GetString("Left_Character");
-            string rightChar = record.GetString("Right_Character");
-            string centerChar = record.GetString("Center_Character");
+            // CreateDummyProject와 AI 생성 데이터는 Char1Name, Char1Pos 형식 사용
+            // 최대 2명의 캐릭터 지원 (Char1, Char2)
 
-            // Left Character
-            if (!string.IsNullOrEmpty(leftChar))
-            {
-                ShowCharacter(leftCharacterImage, leftCharacterGroup, leftChar, record, "Left");
-            }
-            else
-            {
-                HideCharacter(leftCharacterGroup);
-            }
+            // 모든 캐릭터 숨기기
+            HideCharacter(leftCharacterGroup);
+            HideCharacter(rightCharacterGroup);
+            HideCharacter(centerCharacterGroup);
 
-            // Right Character
-            if (!string.IsNullOrEmpty(rightChar))
+            // Char1 표시
+            string char1Name = record.GetString("Char1Name");
+            if (!string.IsNullOrEmpty(char1Name))
             {
-                ShowCharacter(rightCharacterImage, rightCharacterGroup, rightChar, record, "Right");
-            }
-            else
-            {
-                HideCharacter(rightCharacterGroup);
+                string char1Pos = record.GetString("Char1Pos");
+                ShowCharacterByPosition(char1Name, char1Pos, record, "Char1");
             }
 
-            // Center Character
-            if (!string.IsNullOrEmpty(centerChar))
+            // Char2 표시
+            string char2Name = record.GetString("Char2Name");
+            if (!string.IsNullOrEmpty(char2Name))
             {
-                ShowCharacter(centerCharacterImage, centerCharacterGroup, centerChar, record, "Center");
-            }
-            else
-            {
-                HideCharacter(centerCharacterGroup);
+                string char2Pos = record.GetString("Char2Pos");
+                ShowCharacterByPosition(char2Name, char2Pos, record, "Char2");
             }
         }
 
-        void ShowCharacter(Image charImage, CanvasGroup charGroup, string charName, DialogueRecord record, string position)
+        void ShowCharacterByPosition(string charName, string position, DialogueRecord record, string charPrefix)
         {
-            // Expression과 Pose 가져오기
-            string exprKey = $"{position}_Expression";
-            string poseKey = $"{position}_Pose";
+            Image targetImage = null;
+            CanvasGroup targetGroup = null;
 
-            string expr = record.GetString(exprKey);
-            string pose = record.GetString(poseKey);
-
-            if (string.IsNullOrEmpty(expr)) expr = "Neutral";
-            if (string.IsNullOrEmpty(pose)) pose = "Normal";
-
-            // 스프라이트 로드 (RuntimeSpriteManager 사용)
-            var spriteManager = FindObjectOfType<RuntimeSpriteManager>();
-            if (spriteManager != null)
+            // 위치에 따라 이미지 슬롯 선택
+            if (position == "Left")
             {
-                Expression expression = ParseExpression(expr);
-                Pose poseEnum = ParsePose(pose);
+                targetImage = leftCharacterImage;
+                targetGroup = leftCharacterGroup;
+            }
+            else if (position == "Right")
+            {
+                targetImage = rightCharacterImage;
+                targetGroup = rightCharacterGroup;
+            }
+            else if (position == "Center")
+            {
+                targetImage = centerCharacterImage;
+                targetGroup = centerCharacterGroup;
+            }
 
-                StartCoroutine(spriteManager.GetOrGenerateSprite(
-                    charName,
-                    expression,
-                    poseEnum,
-                    (sprite) => {
-                        if (sprite != null)
-                        {
-                            charImage.sprite = sprite;
-                            charImage.SetNativeSize();
-                            ShowCharacter(charGroup);
-                        }
-                    }
-                ));
+            if (targetImage != null && targetGroup != null)
+            {
+                ShowCharacter(targetImage, targetGroup, charName, record, charPrefix);
+            }
+        }
+
+        void ShowCharacter(Image charImage, CanvasGroup charGroup, string charName, DialogueRecord record, string charPrefix)
+        {
+            // Expression과 Pose 가져오기 (Char1Look, Char2Look 형식)
+            string lookKey = $"{charPrefix}Look";
+            string lookValue = record.GetString(lookKey);
+
+            // "happy_normal" 형식 파싱
+            string expr = "neutral";
+            string pose = "normal";
+
+            if (!string.IsNullOrEmpty(lookValue))
+            {
+                string[] parts = lookValue.Split('_');
+                if (parts.Length >= 1) expr = parts[0];
+                if (parts.Length >= 2) pose = parts[1];
+            }
+
+            // Size 가져오기 (Char1Size, Char2Size)
+            string sizeKey = $"{charPrefix}Size";
+            string sizeValue = record.GetString(sizeKey);
+            float targetScale = GetScaleForSize(sizeValue);
+
+            // 스프라이트 로드 (TestResources에서 직접 로드, 생성 안 함!)
+            string spritePath = $"TestResources/Standing/{charName}/{lookValue}";
+            Debug.Log($"[DialogueUI] Loading character sprite: {spritePath}");
+
+            Sprite characterSprite = Resources.Load<Sprite>(spritePath);
+
+            if (characterSprite != null)
+            {
+                charImage.sprite = characterSprite;
+
+                // 슬롯 크기에 맞춰 이미지 크기 설정 (바닥에 붙이고 영역 안에 맞춤)
+                RectTransform imageRect = charImage.GetComponent<RectTransform>();
+                imageRect.anchorMin = Vector2.zero;
+                imageRect.anchorMax = Vector2.one;
+                imageRect.sizeDelta = Vector2.zero; // 슬롯 전체 채우기
+                imageRect.anchoredPosition = Vector2.zero;
+
+                // ✅ 스케일 적용 (발화 중인 캐릭터 강조)
+                charImage.transform.localScale = Vector3.one * targetScale;
+
+                ShowCharacter(charGroup);
+                Debug.Log($"[DialogueUI] ✅ Character sprite loaded: {spritePath}");
+            }
+            else
+            {
+                Debug.LogWarning($"[DialogueUI] ❌ Character sprite not found: {spritePath}");
+
+                // 디버깅: 사용 가능한 스프라이트 목록 표시
+                var allSprites = Resources.LoadAll<Sprite>($"TestResources/Standing/{charName}");
+                Debug.Log($"[DialogueUI] Available sprites for {charName}: {allSprites.Length}");
+                foreach (var s in allSprites)
+                {
+                    Debug.Log($"  - {s.name}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Size 문자열을 스케일 값으로 변환
+        /// </summary>
+        float GetScaleForSize(string size)
+        {
+            switch (size)
+            {
+                case "Large":
+                    return 1.2f; // 발화 중 (20% 확대)
+                case "Medium":
+                    return 1.0f; // 기본 크기
+                case "Small":
+                    return 0.8f; // 축소
+                default:
+                    return 1.0f; // 기본값
             }
         }
 
@@ -304,10 +400,73 @@ namespace IyagiAI.Runtime
 
         void ChangeBackground(string bgName)
         {
-            Sprite bgSprite = Resources.Load<Sprite>($"Image/Background/{bgName}");
+            if (string.IsNullOrEmpty(bgName))
+                return;
+
+            Sprite bgSprite = null;
+            Debug.Log($"[DialogueUI] Attempting to load background: '{bgName}'");
+
+            // 1. 전체 경로로 로드 시도
+            bgSprite = Resources.Load<Sprite>(bgName);
+            if (bgSprite != null)
+            {
+                Debug.Log($"[DialogueUI] ✅ Background loaded from full path: {bgName}");
+            }
+
+            // 2. Image/Background/ 경로로 시도
+            if (bgSprite == null)
+            {
+                string path2 = $"Image/Background/{bgName}";
+                Debug.Log($"[DialogueUI] Trying path: {path2}");
+                bgSprite = Resources.Load<Sprite>(path2);
+                if (bgSprite != null)
+                {
+                    Debug.Log($"[DialogueUI] ✅ Background loaded from: {path2}");
+                }
+            }
+
+            // 3. 파일명만 추출하여 재시도
+            if (bgSprite == null)
+            {
+                string fileName = System.IO.Path.GetFileNameWithoutExtension(bgName);
+                string path3 = $"Image/Background/{fileName}";
+                Debug.Log($"[DialogueUI] Trying path with extracted filename: {path3}");
+                bgSprite = Resources.Load<Sprite>(path3);
+                if (bgSprite != null)
+                {
+                    Debug.Log($"[DialogueUI] ✅ Background loaded from: {path3}");
+                }
+            }
+
+            // 4. TestResources에서 직접 시도
+            if (bgSprite == null)
+            {
+                string fileName = System.IO.Path.GetFileNameWithoutExtension(bgName);
+                string path4 = $"TestResources/Background/{fileName}";
+                Debug.Log($"[DialogueUI] Trying TestResources path: {path4}");
+                bgSprite = Resources.Load<Sprite>(path4);
+                if (bgSprite != null)
+                {
+                    Debug.Log($"[DialogueUI] ✅ Background loaded from: {path4}");
+                }
+            }
+
             if (bgSprite != null)
             {
                 backgroundImage.sprite = bgSprite;
+                Debug.Log($"[DialogueUI] ✅ Background successfully applied!");
+            }
+            else
+            {
+                Debug.LogError($"[DialogueUI] ❌ Background not found after all attempts: {bgName}");
+
+                // 디버깅: Resources 폴더 내용 확인
+                var allBackgrounds = Resources.LoadAll<Sprite>("TestResources/Background");
+                Debug.Log($"[DialogueUI] Available backgrounds in TestResources/Background: {allBackgrounds.Length}");
+                foreach (var bg in allBackgrounds)
+                {
+                    Debug.Log($"  - {bg.name}");
+                }
             }
         }
 
@@ -326,7 +485,7 @@ namespace IyagiAI.Runtime
                 {
                     StopCoroutine(typewriterCoroutine);
                 }
-                dialogueText.text = currentRecord.GetString("Dialogue");
+                dialogueText.text = currentRecord.GetString("ParsedLine_ENG");
                 isTextComplete = true;
             }
             else
@@ -371,6 +530,31 @@ namespace IyagiAI.Runtime
             // Skip 기능 (챕터 끝까지 빠르게 진행)
             // GameController에서 구현 필요
             Debug.Log("Skip requested");
+        }
+
+        // BGM/SFX 재생 헬퍼
+        void PlayBGM(string bgmName)
+        {
+            if (SoundManager.Instance != null)
+            {
+                SoundManager.Instance.PlayBGM(bgmName);
+            }
+            else
+            {
+                Debug.LogWarning("[DialogueUI] SoundManager not found! Cannot play BGM.");
+            }
+        }
+
+        void PlaySFX(string sfxName)
+        {
+            if (SoundManager.Instance != null)
+            {
+                SoundManager.Instance.PlaySFX(sfxName);
+            }
+            else
+            {
+                Debug.LogWarning("[DialogueUI] SoundManager not found! Cannot play SFX.");
+            }
         }
 
         // Enum 파싱 헬퍼

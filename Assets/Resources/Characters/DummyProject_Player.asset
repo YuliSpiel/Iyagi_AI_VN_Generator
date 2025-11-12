@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c8814a1027c2472f9049d14a699c9c4, type: 3}
+  m_Name: DummyProject_Player
+  m_EditorClassIdentifier: 
+  characterName: "\uC8FC\uC778\uACF5"
+  role: 
+  age: 20
+  gender: 0
+  pov: 0
+  appearanceDescription: "\uAC80\uC740 \uBA38\uB9AC\uC758 \uD3C9\uBC94\uD55C \uCCAD\uB144"
+  confirmedSeed: 0
+  facePreview: {fileID: 0}
+  resourcePath: "Generated/Characters/\uC8FC\uC778\uACF5"
+  personality: "\uC131\uC2E4\uD558\uACE0 \uCE5C\uC808\uD55C \uC131\uACA9"
+  background: 
+  archetype: 0
+  speechExamples: []
+  isRomanceable: 0
+  initialAffection: 0

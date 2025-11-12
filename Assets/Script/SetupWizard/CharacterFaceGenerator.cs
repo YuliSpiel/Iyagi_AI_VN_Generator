@@ -40,10 +40,11 @@ namespace IyagiAI.SetupWizard
             isGenerating = true;
             onGeneratingStarted?.Invoke();
 
-            // 얼굴 프리뷰 프롬프트 (작은 크기, 빠른 생성)
+            // 얼굴 프리뷰 프롬프트 (스탠딩 이미지와 동일한 그림체)
             string prompt = $@"A portrait of a character for a visual novel.
 High-quality anime illustration style with clean outlines and soft gradient shading.
 Large expressive eyes, natural lighting, smooth skin tone.
+Line art is thin and consistent, coloring uses soft airbrush-style highlights and shadows.
 Close-up face portrait, shoulders visible.
 {appearanceDescription}
 Background: soft gradient or solid color (no complex scenery).

@@ -420,50 +420,57 @@ JSON 형식으로만 출력:
             npc.personality = personalityInput.text;
             npc.archetype = (Archetype)archetypeDropdown.value;
             npc.confirmedSeed = faceGenerator.GetCurrentSeed();
-            npc.facePreview = faceGenerator.GetCurrentPreview();
             npc.resourcePath = $"Generated/Characters/{npc.characterName}";
             npc.isRomanceable = romanceableToggle.isOn;
             npc.initialAffection = 0;
 
+#if UNITY_EDITOR
+            // 얼굴 프리뷰 파일로 저장 후 다시 로드하여 설정
+            SaveAndLoadFacePreview(npc, faceGenerator.GetCurrentPreview().texture);
+#else
+            // 런타임에서는 메모리 상의 Sprite 그대로 사용
+            npc.facePreview = faceGenerator.GetCurrentPreview();
+#endif
+
             wizardManager.projectData.npcs.Add(npc);
             npcCount++;
 
-#if UNITY_EDITOR
-            // 얼굴 프리뷰 저장
-            SaveFacePreview(npc, previewImage.sprite.texture);
-#endif
-
-            // 테스트 모드 확인 (AutoFill 컴포넌트 존재 여부로 판단)
-            var autoFill = wizardManager.GetComponent<SetupWizardAutoFill>();
-            bool isTestMode = autoFill != null && autoFill.enableAutoFill;
-
-            if (isTestMode)
-            {
-                // 테스트 모드: 스탠딩 이미지 생성 스킵
-                Debug.Log("[Test Mode] Skipping standing sprite generation for NPC");
-                addAnotherButton.interactable = true;
-            }
-            else
-            {
-                // 일반 모드: 스탠딩 5종 자동 생성
-                StartCoroutine(GenerateStandingSprites(npc));
-            }
+            // ✅ [2025-01-10] 스탠딩 생성을 OnWizardComplete()로 이동
+            // 얼굴 프리뷰만 저장하고 즉시 다음 NPC 추가 활성화
+            Debug.Log($"NPC confirmed: {npc.characterName} (Face preview saved)");
+            addAnotherButton.interactable = true;
         }
 
 #if UNITY_EDITOR
-        private void SaveFacePreview(CharacterData character, Texture2D texture)
+        private void SaveAndLoadFacePreview(CharacterData character, Texture2D texture)
         {
+            // 캐릭터별 폴더 생성
             string dir = $"Assets/Resources/Generated/Characters/{character.characterName}";
             if (!System.IO.Directory.Exists(dir))
             {
                 System.IO.Directory.CreateDirectory(dir);
             }
 
-            string path = $"{dir}/face_preview.png";
-            System.IO.File.WriteAllBytes(path, texture.EncodeToPNG());
+            // 얼굴 프리뷰 PNG 파일로 저장
+            string fullPath = $"{dir}/face_preview.png";
+            System.IO.File.WriteAllBytes(fullPath, texture.EncodeToPNG());
             UnityEditor.AssetDatabase.Refresh();
 
-            Debug.Log($"NPC face preview saved: {path}");
+            // 저장된 파일을 Sprite로 다시 로드
+            string resourcePath = $"{character.resourcePath}/face_preview";
+            Sprite loadedSprite = Resources.Load<Sprite>(resourcePath);
+
+            if (loadedSprite != null)
+            {
+                character.facePreview = loadedSprite;
+                Debug.Log($"NPC face preview saved and loaded: {fullPath}");
+            }
+            else
+            {
+                Debug.LogWarning($"Failed to load saved NPC face preview from: {resourcePath}");
+                // 로드 실패 시 메모리 상의 Sprite 사용
+                character.facePreview = Sprite.Create(texture, new Rect(0, 0, texture.width, texture.height), new Vector2(0.5f, 0.5f));
+            }
         }
 #endif
 

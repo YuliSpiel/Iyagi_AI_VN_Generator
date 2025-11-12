@@ -35,16 +35,31 @@ public class TitleSceneSetupHelper : EditorWindow
         TitleSceneManager manager = managerObj.AddComponent<TitleSceneManager>();
 
         // 패널들 생성
+        Debug.Log("Creating TitlePanel...");
         GameObject titlePanel = CreateTitlePanel(canvas.transform, manager);
-        GameObject projectSelectPanel = CreateProjectSelectPanel(canvas.transform, manager);
-        GameObject saveFileSelectPanel = CreateSaveFileSelectPanel(canvas.transform, manager);
-        GameObject cgCollectionPanel = CreateCGCollectionPanel(canvas.transform, manager);
+        Debug.Log($"TitlePanel created: {titlePanel != null}");
 
-        // Manager에 패널 연결
+        Debug.Log("Creating ProjectSelectPanel...");
+        GameObject projectSelectPanel = CreateProjectSelectPanel(canvas.transform, manager);
+        Debug.Log($"ProjectSelectPanel created: {projectSelectPanel != null}");
+
+        Debug.Log("Creating SaveFileSelectPanel...");
+        GameObject saveFileSelectPanel = CreateSaveFileSelectPanel(canvas.transform, manager);
+        Debug.Log($"SaveFileSelectPanel created: {saveFileSelectPanel != null}");
+
+        Debug.Log("Creating CGCollectionPanel...");
+        GameObject cgCollectionPanel = CreateCGCollectionPanel(canvas.transform, manager);
+        Debug.Log($"CGCollectionPanel created: {cgCollectionPanel != null}");
+
+        // Manager에 패널 연결 (Undo 시스템 사용)
+        Undo.RecordObject(manager, "Set TitleSceneManager panel references");
         manager.titlePanel = titlePanel;
         manager.projectSelectPanel = projectSelectPanel;
         manager.saveFileSelectPanel = saveFileSelectPanel;
         manager.cgCollectionPanel = cgCollectionPanel;
+
+        // 씬을 더티로 마킹
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
 
         // 씬 저장
         string scenePath = "Assets/Scenes/TitleScene.unity";
@@ -57,6 +72,11 @@ public class TitleSceneSetupHelper : EditorWindow
 
         Debug.Log("✅ TitleScene created successfully!");
         Debug.Log($"Scene saved at: {scenePath}");
+        Debug.Log("Manager panel references:");
+        Debug.Log($"  - titlePanel: {manager.titlePanel != null}");
+        Debug.Log($"  - projectSelectPanel: {manager.projectSelectPanel != null}");
+        Debug.Log($"  - saveFileSelectPanel: {manager.saveFileSelectPanel != null}");
+        Debug.Log($"  - cgCollectionPanel: {manager.cgCollectionPanel != null}");
     }
 
     // ===== TitlePanel =====
@@ -120,9 +140,10 @@ public class TitleSceneSetupHelper : EditorWindow
         projectSelectPanel.backButton = CreateButton("BackButton", panel.transform, "Back").GetComponent<Button>();
         SetPosition(projectSelectPanel.backButton.GetComponent<RectTransform>(), 0.05f, 0.05f, 0.25f, 0.12f);
 
-        // ProjectItem Prefab 생성 (나중에 사용)
-        GameObject prefab = CreateProjectItemPrefab();
-        projectSelectPanel.projectItemPrefab = prefab;
+        // Korean 폰트 할당
+        projectSelectPanel.koreanFont = notoSansKRFont;
+
+        // ProjectItem Prefab은 이제 런타임에 자동 생성됨 (수동 연결 불필요)
 
         return panel;
     }
@@ -164,6 +185,9 @@ public class TitleSceneSetupHelper : EditorWindow
         // New Save Popup 생성
         GameObject popup = CreateNewSavePopup(panel.transform, saveFilePanel);
         saveFilePanel.newSavePopup = popup;
+
+        // Korean 폰트 할당
+        saveFilePanel.koreanFont = notoSansKRFont;
 
         // SaveFileItem Prefab 생성
         GameObject prefab = CreateSaveFileItemPrefab();
@@ -420,17 +444,129 @@ public class TitleSceneSetupHelper : EditorWindow
 
         TMP_Dropdown dropdown = dropdownObj.AddComponent<TMP_Dropdown>();
 
-        // Template (간단하게)
+        // Label
+        GameObject labelObj = new GameObject("Label");
+        labelObj.transform.SetParent(dropdownObj.transform, false);
+        var labelText = labelObj.AddComponent<TextMeshProUGUI>();
+        labelText.text = "Chapter 1";
+        labelText.alignment = TextAlignmentOptions.Center;
+        labelText.color = Color.white;
+        if (notoSansKRFont != null) labelText.font = notoSansKRFont;
+        var labelRect = labelObj.GetComponent<RectTransform>();
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = new Vector2(10, 2);
+        labelRect.offsetMax = new Vector2(-25, -2);
+
+        // Arrow
+        GameObject arrowObj = new GameObject("Arrow");
+        arrowObj.transform.SetParent(dropdownObj.transform, false);
+        var arrowImage = arrowObj.AddComponent<Image>();
+        arrowImage.color = Color.white;
+        var arrowRect = arrowObj.GetComponent<RectTransform>();
+        arrowRect.anchorMin = new Vector2(1, 0.5f);
+        arrowRect.anchorMax = new Vector2(1, 0.5f);
+        arrowRect.sizeDelta = new Vector2(20, 20);
+        arrowRect.anchoredPosition = new Vector2(-15, 0);
+
+        // Template
         GameObject template = new GameObject("Template");
         template.transform.SetParent(dropdownObj.transform, false);
+        var templateRect = template.AddComponent<RectTransform>();
+        templateRect.anchorMin = new Vector2(0, 0);
+        templateRect.anchorMax = new Vector2(1, 0);
+        templateRect.pivot = new Vector2(0.5f, 1);
+        templateRect.sizeDelta = new Vector2(0, 150);
 
-        RectTransform templateRt = template.AddComponent<RectTransform>();
-        templateRt.anchorMin = new Vector2(0, 0);
-        templateRt.anchorMax = new Vector2(1, 0);
-        templateRt.pivot = new Vector2(0.5f, 1);
-        templateRt.sizeDelta = new Vector2(0, 150);
+        var templateImage = template.AddComponent<Image>();
+        templateImage.color = new Color(0.2f, 0.2f, 0.2f, 1f);
+
+        var scrollRect = template.AddComponent<ScrollRect>();
+        scrollRect.horizontal = false;
+        scrollRect.vertical = true;
+
+        // Viewport
+        GameObject viewport = new GameObject("Viewport");
+        viewport.transform.SetParent(template.transform, false);
+        var viewportRect = viewport.AddComponent<RectTransform>();
+        viewportRect.anchorMin = Vector2.zero;
+        viewportRect.anchorMax = Vector2.one;
+        viewportRect.sizeDelta = Vector2.zero;
+        var viewportMask = viewport.AddComponent<Mask>();
+        viewportMask.showMaskGraphic = false;
+        var viewportImage = viewport.AddComponent<Image>();
+        viewportImage.color = new Color(0.2f, 0.2f, 0.2f, 1f);
+
+        // Content
+        GameObject content = new GameObject("Content");
+        content.transform.SetParent(viewport.transform, false);
+        var contentRect = content.AddComponent<RectTransform>();
+        contentRect.anchorMin = new Vector2(0, 1);
+        contentRect.anchorMax = new Vector2(1, 1);
+        contentRect.pivot = new Vector2(0.5f, 1);
+        contentRect.sizeDelta = new Vector2(0, 28);
+
+        // Item
+        GameObject item = new GameObject("Item");
+        item.transform.SetParent(content.transform, false);
+        var itemRect = item.AddComponent<RectTransform>();
+        itemRect.anchorMin = new Vector2(0, 0.5f);
+        itemRect.anchorMax = new Vector2(1, 0.5f);
+        itemRect.sizeDelta = new Vector2(0, 28);
+
+        var itemToggle = item.AddComponent<Toggle>();
+        var itemBg = item.AddComponent<Image>();
+        itemBg.color = new Color(0.3f, 0.3f, 0.3f, 1f);
+
+        // Item Background
+        GameObject itemBgObj = new GameObject("Item Background");
+        itemBgObj.transform.SetParent(item.transform, false);
+        var itemBgRect = itemBgObj.AddComponent<RectTransform>();
+        itemBgRect.anchorMin = Vector2.zero;
+        itemBgRect.anchorMax = Vector2.one;
+        itemBgRect.sizeDelta = Vector2.zero;
+        var itemBgImage = itemBgObj.AddComponent<Image>();
+        itemBgImage.color = new Color(0.5f, 0.5f, 0.5f, 1f);
+
+        // Item Checkmark
+        GameObject checkmark = new GameObject("Item Checkmark");
+        checkmark.transform.SetParent(item.transform, false);
+        var checkmarkRect = checkmark.AddComponent<RectTransform>();
+        checkmarkRect.anchorMin = Vector2.zero;
+        checkmarkRect.anchorMax = new Vector2(0, 1);
+        checkmarkRect.sizeDelta = new Vector2(20, 0);
+        var checkmarkImage = checkmark.AddComponent<Image>();
+        checkmarkImage.color = Color.white;
+
+        // Item Label
+        GameObject itemLabel = new GameObject("Item Label");
+        itemLabel.transform.SetParent(item.transform, false);
+        var itemLabelRect = itemLabel.AddComponent<RectTransform>();
+        itemLabelRect.anchorMin = Vector2.zero;
+        itemLabelRect.anchorMax = Vector2.one;
+        itemLabelRect.offsetMin = new Vector2(25, 1);
+        itemLabelRect.offsetMax = new Vector2(-5, -1);
+        var itemLabelText = itemLabel.AddComponent<TextMeshProUGUI>();
+        itemLabelText.text = "Chapter 1";
+        itemLabelText.alignment = TextAlignmentOptions.Left;
+        itemLabelText.color = Color.white;
+        if (notoSansKRFont != null) itemLabelText.font = notoSansKRFont;
+
+        itemToggle.targetGraphic = itemBg;
+        itemToggle.graphic = checkmarkImage;
+
+        scrollRect.content = contentRect;
+        scrollRect.viewport = viewportRect;
+
+        dropdown.template = templateRect;
+        dropdown.captionText = labelText;
+        dropdown.itemText = itemLabelText;
 
         template.SetActive(false);
+
+        // 옵션 추가
+        dropdown.options.Clear();
+        dropdown.options.Add(new TMP_Dropdown.OptionData("Chapter 1"));
 
         return dropdownObj;
     }

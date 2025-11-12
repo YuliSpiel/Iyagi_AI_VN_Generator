@@ -34,7 +34,8 @@ namespace IyagiAI.Runtime
         private const int MAX_SAVE_SLOTS = 10;
 
         private string SaveFolderPath => Path.Combine(Application.persistentDataPath, SAVE_FOLDER);
-        private string ProjectSlotsFile => Path.Combine(SaveFolderPath, "projects.json");
+        private string SaveDataFolderPath => Path.Combine(Application.persistentDataPath, "SaveData");
+        private string ProjectSlotsFile => Path.Combine(SaveDataFolderPath, "ProjectSlots.json");
 
         private List<ProjectSlot> projectSlots = new List<ProjectSlot>();
 
@@ -53,6 +54,12 @@ namespace IyagiAI.Runtime
             if (!Directory.Exists(SaveFolderPath))
             {
                 Directory.CreateDirectory(SaveFolderPath);
+            }
+
+            // SaveData 폴더 생성
+            if (!Directory.Exists(SaveDataFolderPath))
+            {
+                Directory.CreateDirectory(SaveDataFolderPath);
             }
 
             LoadAllProjectSlots();
@@ -266,8 +273,11 @@ namespace IyagiAI.Runtime
 
         private void LoadAllProjectSlots()
         {
+            Debug.Log($"[SaveDataManager] Loading project slots from: {ProjectSlotsFile}");
+
             if (!File.Exists(ProjectSlotsFile))
             {
+                Debug.LogWarning($"[SaveDataManager] Project slots file not found: {ProjectSlotsFile}");
                 projectSlots = new List<ProjectSlot>();
                 return;
             }
@@ -275,12 +285,37 @@ namespace IyagiAI.Runtime
             try
             {
                 string json = File.ReadAllText(ProjectSlotsFile);
+                Debug.Log($"[SaveDataManager] Read JSON ({json.Length} chars):");
+                Debug.Log($"[SaveDataManager] JSON preview: {json.Substring(0, System.Math.Min(500, json.Length))}");
+
                 var wrapper = JsonUtility.FromJson<ProjectSlotListWrapper>(json);
-                projectSlots = wrapper.projects ?? new List<ProjectSlot>();
+
+                if (wrapper == null)
+                {
+                    Debug.LogError("[SaveDataManager] Failed to parse JSON wrapper - wrapper is null");
+                    projectSlots = new List<ProjectSlot>();
+                    return;
+                }
+
+                if (wrapper.projects == null)
+                {
+                    Debug.LogError("[SaveDataManager] wrapper.projects is null");
+                    projectSlots = new List<ProjectSlot>();
+                    return;
+                }
+
+                projectSlots = wrapper.projects;
+                Debug.Log($"[SaveDataManager] Successfully loaded {projectSlots.Count} project slots");
+
+                foreach (var slot in projectSlots)
+                {
+                    Debug.Log($"[SaveDataManager] - Project: {slot.projectName} (GUID: {slot.projectGuid})");
+                }
             }
             catch (Exception e)
             {
-                Debug.LogError($"Failed to load project slots: {e.Message}");
+                Debug.LogError($"[SaveDataManager] Failed to load project slots: {e.Message}");
+                Debug.LogError($"[SaveDataManager] Stack trace: {e.StackTrace}");
                 projectSlots = new List<ProjectSlot>();
             }
         }
@@ -414,6 +449,46 @@ namespace IyagiAI.Runtime
                     return;
                 }
             }
+        }
+
+        /// <summary>
+        /// 현재 SaveFile을 업데이트 (챕터 진행 상황 및 게임 상태 저장)
+        /// </summary>
+        public void UpdateSaveFile(string saveFileId, int currentChapter, GameStateSnapshot stateSnapshot)
+        {
+            if (string.IsNullOrEmpty(saveFileId))
+            {
+                Debug.LogWarning("[SaveDataManager] UpdateSaveFile: saveFileId is null or empty");
+                return;
+            }
+
+            foreach (var project in projectSlots)
+            {
+                var saveFile = project.saveFiles.FirstOrDefault(s => s.saveFileId == saveFileId);
+                if (saveFile != null)
+                {
+                    // 챕터 정보 업데이트
+                    saveFile.currentChapter = currentChapter;
+                    saveFile.lastPlayedDate = DateTime.Now;
+
+                    // GameStateSnapshot → GameState 변환
+                    if (saveFile.gameState == null)
+                    {
+                        saveFile.gameState = new GameState();
+                    }
+
+                    saveFile.gameState.coreValueScores = new Dictionary<string, int>(stateSnapshot.coreValueScores);
+                    saveFile.gameState.skillScores = new Dictionary<string, int>(stateSnapshot.skillScores);
+                    saveFile.gameState.npcAffections = new Dictionary<string, int>(stateSnapshot.characterAffections);
+                    saveFile.gameState.previousChoices = new List<string>(stateSnapshot.previousChoices);
+
+                    SaveAllProjectSlots();
+                    Debug.Log($"[SaveDataManager] Updated SaveFile: {saveFileId} (Chapter {currentChapter})");
+                    return;
+                }
+            }
+
+            Debug.LogWarning($"[SaveDataManager] SaveFile not found for update: {saveFileId}");
         }
 
         // ===== CG 컬렉션 관리 =====

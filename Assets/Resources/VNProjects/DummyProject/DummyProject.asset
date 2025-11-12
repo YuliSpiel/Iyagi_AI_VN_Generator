@@ -1,0 +1,34 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: befa1dc7319404de884ddd3e12dabb4a, type: 3}
+  m_Name: DummyProject
+  m_EditorClassIdentifier: 
+  gameTitle: "\uB354\uBBF8 \uD14C\uC2A4\uD2B8 \uD504\uB85C\uC81D\uD2B8"
+  gamePremise: "\uB300\uC0AC, \uB124\uC784\uD0DC\uADF8, \uC120\uD0DD\uC9C0 \uC2DC\uC2A4\uD15C
+    \uD14C\uC2A4\uD2B8\uC6A9 \uD504\uB85C\uC81D\uD2B8"
+  genre: 6
+  tone: 0
+  playtime: 0
+  coreValues:
+  - name: "\uC6B0\uC815"
+    derivedSkills:
+    - "\uACF5\uAC10"
+    - "\uD611\uB825"
+    - "\uC2E0\uB8B0"
+  totalChapters: 1
+  endings: []
+  playerCharacter: {fileID: 0}
+  npcs:
+  - {fileID: 0}
+  allCGs: []
+  projectGuid: de838f80-d61e-4f40-aac5-ab6dbd7d9acd
+  createdTimestamp: 1762750834

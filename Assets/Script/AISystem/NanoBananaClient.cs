@@ -8,11 +8,16 @@ namespace IyagiAI.AISystem
     /// <summary>
     /// Gemini 2.5 Flash Image API 클라이언트
     /// 캐릭터 스탠딩, 배경, CG 생성 담당
+    /// Rate Limit 자동 재시도 기능 포함
     /// </summary>
     public class NanoBananaClient : MonoBehaviour
     {
         private string apiKey;
         private const string API_URL_GENERATE = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent";
+
+        [Header("Rate Limit Settings")]
+        [SerializeField] private int maxRetryAttempts = 3;
+        [SerializeField] private float retryDelaySeconds = 60f;
 
         /// <summary>
         /// API 키 초기화
@@ -23,7 +28,7 @@ namespace IyagiAI.AISystem
         }
 
         /// <summary>
-        /// 기본 이미지 생성 (스탠딩, 배경 등)
+        /// 기본 이미지 생성 (스탠딩, 배경 등) - Rate Limit 자동 재시도 포함
         /// </summary>
         /// <param name="prompt">이미지 생성 프롬프트</param>
         /// <param name="seed">시드 값 (null이면 랜덤)</param>
@@ -35,13 +40,25 @@ namespace IyagiAI.AISystem
             System.Action<Texture2D, int> onSuccess,
             System.Action<string> onError)
         {
+            int usedSeed = seed ?? Random.Range(1000, 99999);
+            yield return GenerateImageWithRetry(prompt, usedSeed, onSuccess, onError, 0);
+        }
+
+        /// <summary>
+        /// Rate Limit 재시도 로직이 포함된 내부 메서드
+        /// </summary>
+        private IEnumerator GenerateImageWithRetry(
+            string prompt,
+            int usedSeed,
+            System.Action<Texture2D, int> onSuccess,
+            System.Action<string> onError,
+            int attemptCount)
+        {
             if (string.IsNullOrEmpty(apiKey))
             {
                 onError?.Invoke("API key not initialized");
                 yield break;
             }
-
-            int usedSeed = seed ?? Random.Range(1000, 99999);
 
             // Gemini 2.5 Flash Image API 요청 형식
             var requestBody = new GeminiImageRequest
@@ -144,7 +161,38 @@ namespace IyagiAI.AISystem
             }
             else
             {
-                onError?.Invoke($"API Error: {request.error}\n{request.downloadHandler.text}");
+                // Rate Limit 에러 감지
+                bool isRateLimitError = false;
+                string errorResponse = request.downloadHandler.text;
+
+                // HTTP 429 또는 에러 메시지에 "rate limit" 포함 시
+                if (request.responseCode == 429 ||
+                    (!string.IsNullOrEmpty(errorResponse) &&
+                     (errorResponse.Contains("rate limit") ||
+                      errorResponse.Contains("RESOURCE_EXHAUSTED") ||
+                      errorResponse.Contains("quota"))))
+                {
+                    isRateLimitError = true;
+                }
+
+                // Rate Limit 에러이고 재시도 가능한 경우
+                if (isRateLimitError && attemptCount < maxRetryAttempts)
+                {
+                    Debug.LogWarning($"[NanoBananaClient] Rate limit reached. Retry {attemptCount + 1}/{maxRetryAttempts} after {retryDelaySeconds}s...");
+                    yield return new WaitForSeconds(retryDelaySeconds);
+
+                    // 재시도
+                    yield return GenerateImageWithRetry(prompt, usedSeed, onSuccess, onError, attemptCount + 1);
+                }
+                else
+                {
+                    // 재시도 불가능하거나 다른 에러
+                    string errorMsg = isRateLimitError
+                        ? $"Rate limit exceeded after {maxRetryAttempts} attempts"
+                        : $"API Error: {request.error}\n{errorResponse}";
+
+                    onError?.Invoke(errorMsg);
+                }
             }
         }
 

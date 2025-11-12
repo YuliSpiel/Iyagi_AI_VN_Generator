@@ -16,6 +16,10 @@ namespace IyagiAI.SetupWizard
         [Header("API Clients")]
         public GeminiClient geminiClient;
         public NanoBananaClient nanoBananaClient;
+        public ElevenLabsClient elevenLabsClient;
+
+        [Header("Managers")]
+        public ChapterGenerationManager chapterManager;
 
         [Header("Steps (UI Panels)")]
         public GameObject[] stepPanels; // Step1 ~ Step6 UI 패널
@@ -24,6 +28,8 @@ namespace IyagiAI.SetupWizard
 
         void Start()
         {
+            Debug.Log("=== [SetupWizardManager] Start() 시작 ===");
+
             // API 설정 로드
             APIConfigData config = Resources.Load<APIConfigData>("APIConfig");
 
@@ -45,12 +51,32 @@ namespace IyagiAI.SetupWizard
             projectData.projectGuid = System.Guid.NewGuid().ToString();
             projectData.createdTimestamp = System.DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
+            Debug.Log($"[SetupWizardManager] 새 프로젝트 생성: GUID={projectData.projectGuid}");
+
             // API 클라이언트 초기화
             geminiClient = gameObject.AddComponent<GeminiClient>();
             geminiClient.Initialize(config.geminiApiKey);
 
             nanoBananaClient = gameObject.AddComponent<NanoBananaClient>();
             nanoBananaClient.Initialize(config.geminiApiKey); // Gemini API로 이미지도 생성
+
+            elevenLabsClient = gameObject.AddComponent<ElevenLabsClient>();
+            if (!string.IsNullOrEmpty(config.elevenLabsApiKey))
+            {
+                elevenLabsClient.Initialize(config.elevenLabsApiKey);
+            }
+            else
+            {
+                Debug.LogWarning("ElevenLabs API key not set. Audio generation will be skipped.");
+            }
+
+            // ChapterGenerationManager 초기화
+            chapterManager = gameObject.AddComponent<ChapterGenerationManager>();
+            chapterManager.projectData = projectData;
+            chapterManager.geminiClient = geminiClient;
+            chapterManager.nanoBananaClient = nanoBananaClient;
+
+            Debug.Log("[SetupWizardManager] API 클라이언트 초기화 완료");
 
             // 첫 번째 스텝 표시
             ShowStep(0);
@@ -207,31 +233,40 @@ namespace IyagiAI.SetupWizard
         }
 
         /// <summary>
-        /// 위자드 완료 시 호출
+        /// 위자드 완료 시 호출 - 병렬 에셋 생성 포함 (Cycle 1-3)
         /// </summary>
         public void OnWizardComplete()
         {
+            Debug.Log("=== [OnWizardComplete] 시작 ===");
+            Debug.Log($"[OnWizardComplete] projectData.gameTitle = {projectData.gameTitle}");
+            Debug.Log($"[OnWizardComplete] projectData.projectGuid = {projectData.projectGuid}");
+            Debug.Log($"[OnWizardComplete] projectData.playerCharacter = {projectData.playerCharacter?.characterName ?? "null"}");
+            Debug.Log($"[OnWizardComplete] projectData.npcs.Count = {projectData.npcs?.Count ?? 0}");
+
 #if UNITY_EDITOR
             // 캐릭터 데이터를 서브 에셋으로 저장
             string assetPath = UnityEditor.AssetDatabase.GetAssetPath(projectData);
+            Debug.Log($"[OnWizardComplete] Asset Path = {assetPath}");
 
             if (projectData.playerCharacter != null)
             {
                 projectData.playerCharacter.name = projectData.playerCharacter.characterName;
                 UnityEditor.AssetDatabase.AddObjectToAsset(projectData.playerCharacter, assetPath);
+                Debug.Log($"[OnWizardComplete] Player character saved: {projectData.playerCharacter.characterName}");
             }
 
             foreach (var npc in projectData.npcs)
             {
                 npc.name = npc.characterName;
                 UnityEditor.AssetDatabase.AddObjectToAsset(npc, assetPath);
+                Debug.Log($"[OnWizardComplete] NPC saved: {npc.characterName}");
             }
 
             // 최종 저장
             UnityEditor.EditorUtility.SetDirty(projectData);
             UnityEditor.AssetDatabase.SaveAssets();
 
-            Debug.Log($"VN Project completed: {assetPath}");
+            Debug.Log($"[OnWizardComplete] VN Project saved: {assetPath}");
 #endif
 
             // SaveDataManager에 프로젝트 슬롯 생성
@@ -239,25 +274,92 @@ namespace IyagiAI.SetupWizard
             if (existingSlot == null)
             {
                 SaveDataManager.Instance.CreateProjectSlot(projectData);
-                Debug.Log($"Created project slot for: {projectData.gameTitle}");
+                Debug.Log($"[OnWizardComplete] Created project slot for: {projectData.gameTitle}");
+            }
+            else
+            {
+                Debug.Log($"[OnWizardComplete] Project slot already exists: {projectData.gameTitle}");
             }
 
             // 첫 저장 파일 생성 (Chapter 1 시작)
             var newSaveFile = SaveDataManager.Instance.CreateNewSaveFile(projectData.projectGuid, 1);
             if (newSaveFile != null)
             {
-                Debug.Log($"Created initial save file: {newSaveFile.saveFileId}");
+                Debug.Log($"[OnWizardComplete] Created initial save file: {newSaveFile.saveFileId}");
 
                 // 저장 파일 로드 (PlayerPrefs에 저장)
                 SaveDataManager.Instance.LoadSaveFile(newSaveFile.saveFileId);
+                Debug.Log($"[OnWizardComplete] Save file loaded to PlayerPrefs");
 
-                // 게임 씬으로 전환
-                UnityEngine.SceneManagement.SceneManager.LoadScene("GameScene");
+                // ✅ [2025-01-10] 병렬 에셋 생성 시작
+                Debug.Log("[OnWizardComplete] Starting RunParallelAssetGeneration()...");
+                StartCoroutine(RunParallelAssetGeneration());
             }
             else
             {
-                Debug.LogError("Failed to create initial save file!");
+                Debug.LogError("[OnWizardComplete] Failed to create initial save file!");
             }
+        }
+
+        /// <summary>
+        /// 병렬 에셋 생성 실행 (Cycle 1-3)
+        /// </summary>
+        private System.Collections.IEnumerator RunParallelAssetGeneration()
+        {
+            Debug.Log("=== [ParallelAssetGeneration] 시작 ===");
+
+            // ParallelAssetGenerator 초기화
+            var generator = gameObject.AddComponent<ParallelAssetGenerator>();
+            generator.projectData = projectData;
+            generator.nanoBananaClient = nanoBananaClient;
+            generator.geminiClient = geminiClient;
+            generator.elevenLabsClient = elevenLabsClient;
+            generator.chapterManager = chapterManager;
+
+            string chapter1JSON = null;
+
+            // Cycle 1 & 2 병렬 실행 (0% → 50%)
+            yield return generator.RunCycle1And2Parallel(
+                (progress) => {
+                    Debug.Log($"[Progress] {(progress * 100):F0}%");
+                    // TODO: Step6 UI에 진행률 표시
+                },
+                (json) => {
+                    chapter1JSON = json;
+                    Debug.Log("[Barrier] Cycle 1 & 2 완료 (50%)");
+                },
+                () => {
+                    Debug.Log("[Barrier] 챕터1 JSON 준비 완료");
+                }
+            );
+
+            // 테스트 모드 확인
+            var autoFill = GetComponent<SetupWizardAutoFill>();
+            bool isTestMode = autoFill != null && autoFill.enableAutoFill;
+
+            if (isTestMode)
+            {
+                Debug.Log("[Test Mode] Cycle 3 스킵 - 에셋 생성 없이 GameScene 로드");
+            }
+            else
+            {
+                // Cycle 3: 에셋 생성 (50% → 100%)
+                yield return generator.RunCycle3(
+                    chapter1JSON,
+                    (progress) => {
+                        Debug.Log($"[Progress] {(progress * 100):F0}%");
+                        // TODO: Step6 UI에 진행률 표시
+                    },
+                    () => {
+                        Debug.Log("[Final Barrier] Cycle 3 완료 (100%)");
+                    }
+                );
+            }
+
+            Debug.Log("=== [ParallelAssetGeneration] 완료 ===");
+
+            // GameScene 로드
+            UnityEngine.SceneManagement.SceneManager.LoadScene("GameScene");
         }
     }
 }

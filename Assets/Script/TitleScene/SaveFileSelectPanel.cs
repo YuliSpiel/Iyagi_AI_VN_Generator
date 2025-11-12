@@ -19,6 +19,7 @@ namespace IyagiAI.TitleScene
         public TMP_Text projectNameText;
         public Transform saveFileListContainer; // ScrollView Content
         public GameObject saveFileItemPrefab;   // 저장 파일 아이템 프리팹
+        public TMP_FontAsset koreanFont;        // NotoSansKR 폰트 (인스펙터에서 설정)
 
         [Header("Buttons")]
         public Button newSaveButton;
@@ -97,11 +98,14 @@ namespace IyagiAI.TitleScene
             var messageObj = new GameObject("EmptyMessage");
             messageObj.transform.SetParent(saveFileListContainer, false);
 
-            var text = messageObj.AddComponent<TMP_Text>();
+            var text = messageObj.AddComponent<TextMeshProUGUI>();
             text.text = "저장 파일이 없습니다.\n'New Save'로 새 저장 파일을 만들어보세요!";
             text.fontSize = 24;
             text.alignment = TextAlignmentOptions.Center;
             text.color = Color.gray;
+
+            // koreanFont 사용
+            if (koreanFont != null) text.font = koreanFont;
 
             var rectTransform = messageObj.GetComponent<RectTransform>();
             rectTransform.sizeDelta = new Vector2(400, 100);

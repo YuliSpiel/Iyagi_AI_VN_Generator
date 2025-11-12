@@ -16,11 +16,17 @@ namespace IyagiAI.Runtime
         // Core Value 점수 (예: {"Courage": 30, "Wisdom": 50})
         public Dictionary<string, int> coreValueScores = new Dictionary<string, int>();
 
+        // Derived Skill 점수 (예: {"자긍심": 20, "공감능력": 35, "판단력": 15})
+        public Dictionary<string, int> skillScores = new Dictionary<string, int>();
+
         // 캐릭터 호감도 (예: {"NPC1": 70, "NPC2": 30})
         public Dictionary<string, int> characterAffections = new Dictionary<string, int>();
 
         // 선택 히스토리 (이전 선택들)
         public List<string> previousChoices = new List<string>();
+
+        // 챕터 요약 (챕터 번호 → 요약 텍스트)
+        public Dictionary<int, string> chapterSummaries = new Dictionary<int, string>();
 
         // 해금된 CG 목록
         public List<string> unlockedCGs = new List<string>();
@@ -50,6 +56,16 @@ namespace IyagiAI.Runtime
                 sb.AppendLine();
             }
 
+            if (skillScores != null && skillScores.Count > 0)
+            {
+                sb.Append("Skills: ");
+                foreach (var kv in skillScores)
+                {
+                    sb.Append($"{kv.Key}={kv.Value}, ");
+                }
+                sb.AppendLine();
+            }
+
             if (characterAffections != null && characterAffections.Count > 0)
             {
                 sb.Append("Character Affections: ");
@@ -65,7 +81,47 @@ namespace IyagiAI.Runtime
                 sb.AppendLine($"Previous Choices: {string.Join(", ", previousChoices.ToArray())}");
             }
 
+            if (chapterSummaries != null && chapterSummaries.Count > 0)
+            {
+                sb.AppendLine("\nPrevious Chapters:");
+                foreach (var kv in chapterSummaries)
+                {
+                    sb.AppendLine($"  Chapter {kv.Key}: {kv.Value}");
+                }
+            }
+
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// 챕터 캐싱을 위한 해시 키 생성
+        /// Core Value 점수만 사용 (친밀도 제외)
+        /// 10단위로 반올림하여 캐시 효율 향상
+        /// </summary>
+        public string GetCacheHash()
+        {
+            // Core Value가 없으면 초기 상태 해시
+            if (coreValueScores == null || coreValueScores.Count == 0)
+            {
+                return "00000000";
+            }
+
+            // Core Value 점수만 사용 (알파벳 순서로 정렬)
+            var sortedList = new List<KeyValuePair<string, int>>(coreValueScores);
+            sortedList.Sort((a, b) => string.Compare(a.Key, b.Key));
+
+            var roundedValues = new List<string>();
+            foreach (var kv in sortedList)
+            {
+                int roundedValue = (kv.Value / 10) * 10; // 10단위 반올림
+                roundedValues.Add($"{kv.Key}:{roundedValue}");
+            }
+
+            string stateString = string.Join(",", roundedValues.ToArray());
+            int hash = stateString.GetHashCode();
+
+            // 8자리 16진수 문자열 (예: "A1B2C3D4")
+            return hash.ToString("X8");
         }
     }
 }
