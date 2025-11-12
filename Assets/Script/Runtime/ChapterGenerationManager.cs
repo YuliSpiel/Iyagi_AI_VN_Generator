@@ -299,21 +299,21 @@ Affection-Based Dialogue Variations:
   * NPC shows concern when player is in danger
   * Dialogue is warm, affectionate, remembers past interactions
   * NPC may initiate romantic/intimate moments
-  * Example: "Of course I'll help! We're in this together."
+  * Example: ""Of course I'll help! We're in this together.""
 
 - **Medium Affection (50-69)**:
   * NPC cooperates but maintains professional distance
   * NPC gives advice but doesn't get emotionally involved
   * Dialogue is friendly but neutral
   * NPC treats player as colleague/acquaintance
-  * Example: "Fine, I'll help. But let's keep this professional."
+  * Example: ""Fine, I'll help. But let's keep this professional.""
 
 - **Low Affection (30-49)**:
   * NPC still participates but shows reluctance or skepticism
   * NPC questions player's decisions openly
   * Dialogue is distant, skeptical, brief
   * NPC needs convincing or demands something in return
-  * Example: "Why should I trust you? Prove you're worth it."
+  * Example: ""Why should I trust you? Prove you're worth it.""
 
 - **Very Low Affection (<30)**:
   * NPC STILL appears in scenes (story must progress)
@@ -321,7 +321,7 @@ Affection-Based Dialogue Variations:
   * NPC openly disagrees or criticizes player's plans
   * NPC may create minor obstacles or complain frequently
   * NPC cooperates ONLY when forced by circumstances
-  * Example: "Ugh, fine. But I'm doing this for myself, not you."
+  * Example: ""Ugh, fine. But I'm doing this for myself, not you.""
 
 **CRITICAL**: Generate different REACTIONS based on affection:
 - High-affection NPCs should have ENTHUSIASTIC, SUPPORTIVE dialogue
@@ -474,19 +474,19 @@ EXAMPLE - Affection-Based Story Variation:
 **Scenario: Player needs NPC's help for a dangerous mission**
 
 IF NPC Affection = 80 (High):
-  NPC: ""Of course I'll help you! We've been through so much together. I wouldn't let you face this alone.""
+  NPC: """"""Of course I'll help you! We've been through so much together. I wouldn't let you face this alone.""""""
   [NPC eagerly participates, shows concern, offers resources without hesitation]
 
 IF NPC Affection = 55 (Medium):
-  NPC: ""I'll help, but this is risky. Let's make a plan first and minimize the danger.""
+  NPC: """"""I'll help, but this is risky. Let's make a plan first and minimize the danger.""""""
   [NPC cooperates but maintains cautious tone, gives practical advice]
 
 IF NPC Affection = 35 (Low):
-  NPC: ""Fine, I'll help. But don't expect me to go out of my way for you. What's in it for me?""
+  NPC: """"""Fine, I'll help. But don't expect me to go out of my way for you. What's in it for me?""""""
   [NPC participates reluctantly, complains, demands compensation, but DOES participate]
 
 IF NPC Affection = 20 (Very Low):
-  NPC: ""Ugh, seriously? Fine, but only because I need this mission to succeed too. Don't talk to me unless necessary.""
+  NPC: """"""Ugh, seriously? Fine, but only because I need this mission to succeed too. Don't talk to me unless necessary.""""""
   [NPC STILL participates but is hostile, sarcastic, openly criticizes player, minimal cooperation]
 
 **CRITICAL**:
