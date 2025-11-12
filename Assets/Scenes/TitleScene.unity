@@ -5435,6 +5435,7 @@ MonoBehaviour:
   projectNameText: {fileID: 49588674}
   saveFileListContainer: {fileID: 2093879541}
   saveFileItemPrefab: {fileID: 175905343}
+  koreanFont: {fileID: 0}
   newSaveButton: {fileID: 1186491297}
   backButton: {fileID: 151017126}
   newSavePopup: {fileID: 568086309}

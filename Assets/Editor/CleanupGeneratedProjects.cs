@@ -18,12 +18,14 @@ namespace IyagiAI.Editor
                 "정말로 생성된 모든 프로젝트 데이터를 삭제하시겠습니까?\n\n" +
                 "다음 항목들이 삭제됩니다:\n" +
                 "- Resources/Projects/*.asset\n" +
+                "- Resources/VNProjects/*.asset (추가)\n" +
                 "- Resources/Generated/Characters/*\n" +
                 "- Resources/Image/Background/*\n" +
                 "- Resources/Sound/BGM/*\n" +
                 "- Resources/Sound/SFX/*\n" +
                 "- Resources/Image/CG/*\n" +
-                "- 모든 저장 파일 (persistentDataPath)\n\n" +
+                "- 모든 저장 파일 (persistentDataPath)\n" +
+                "- SaveDataManager 프로젝트 슬롯 (추가)\n\n" +
                 "이 작업은 되돌릴 수 없습니다!",
                 "삭제",
                 "취소"
@@ -43,6 +45,19 @@ namespace IyagiAI.Editor
             {
                 var assetFiles = Directory.GetFiles(projectsPath, "*.asset", SearchOption.TopDirectoryOnly);
                 foreach (var file in assetFiles)
+                {
+                    AssetDatabase.DeleteAsset(file);
+                    deletedCount++;
+                    Debug.Log($"[Cleanup] Deleted: {file}");
+                }
+            }
+
+            // 1-1. Resources/VNProjects/*.asset 삭제 (추가)
+            string vnProjectsPath = "Assets/Resources/VNProjects";
+            if (Directory.Exists(vnProjectsPath))
+            {
+                var vnAssetFiles = Directory.GetFiles(vnProjectsPath, "*.asset", SearchOption.TopDirectoryOnly);
+                foreach (var file in vnAssetFiles)
                 {
                     AssetDatabase.DeleteAsset(file);
                     deletedCount++;
@@ -136,6 +151,14 @@ namespace IyagiAI.Editor
                 Debug.Log($"[Cleanup] Deleted save data folder: {savesPath}");
             }
 
+            // 7-1. SaveDataManager의 ProjectSlots JSON 파일 삭제 (추가)
+            string projectSlotsPath = Path.Combine(Application.persistentDataPath, "SaveData", "ProjectSlots.json");
+            if (File.Exists(projectSlotsPath))
+            {
+                File.Delete(projectSlotsPath);
+                Debug.Log($"[Cleanup] Deleted ProjectSlots.json: {projectSlotsPath}");
+            }
+
             // 8. PlayerPrefs 초기화
             PlayerPrefs.DeleteKey("CurrentSaveFileId");
             PlayerPrefs.Save();
@@ -147,7 +170,7 @@ namespace IyagiAI.Editor
             EditorUtility.DisplayDialog(
                 "삭제 완료",
                 $"총 {deletedCount}개의 파일/폴더가 삭제되었습니다.\n\n" +
-                "저장 파일 및 PlayerPrefs도 초기화되었습니다.",
+                "저장 파일, ProjectSlots, PlayerPrefs도 초기화되었습니다.",
                 "확인"
             );
 
