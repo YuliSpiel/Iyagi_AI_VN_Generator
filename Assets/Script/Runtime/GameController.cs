@@ -537,6 +537,7 @@ namespace IyagiAI.Runtime
             yield return chapterManager.GenerateChapterSummary(
                 currentChapterId,
                 currentChapterRecords,
+                currentState,
                 (generatedSummary) => {
                     summary = generatedSummary;
                     summaryCompleted = true;

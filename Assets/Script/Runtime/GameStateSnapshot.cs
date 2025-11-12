@@ -95,29 +95,46 @@ namespace IyagiAI.Runtime
 
         /// <summary>
         /// 챕터 캐싱을 위한 해시 키 생성
-        /// Core Value 점수만 사용 (친밀도 제외)
+        /// Core Value 점수 + 친밀도 점수 모두 사용
         /// 10단위로 반올림하여 캐시 효율 향상
         /// </summary>
         public string GetCacheHash()
         {
-            // Core Value가 없으면 초기 상태 해시
-            if (coreValueScores == null || coreValueScores.Count == 0)
+            var allValues = new List<string>();
+
+            // 1. Core Value 점수 추가 (알파벳 순서로 정렬)
+            if (coreValueScores != null && coreValueScores.Count > 0)
+            {
+                var sortedCoreValues = new List<KeyValuePair<string, int>>(coreValueScores);
+                sortedCoreValues.Sort((a, b) => string.Compare(a.Key, b.Key));
+
+                foreach (var kv in sortedCoreValues)
+                {
+                    int roundedValue = (kv.Value / 10) * 10; // 10단위 반올림
+                    allValues.Add($"CV:{kv.Key}:{roundedValue}");
+                }
+            }
+
+            // 2. 친밀도 점수 추가 (알파벳 순서로 정렬)
+            if (characterAffections != null && characterAffections.Count > 0)
+            {
+                var sortedAffections = new List<KeyValuePair<string, int>>(characterAffections);
+                sortedAffections.Sort((a, b) => string.Compare(a.Key, b.Key));
+
+                foreach (var kv in sortedAffections)
+                {
+                    int roundedValue = (kv.Value / 10) * 10; // 10단위 반올림
+                    allValues.Add($"AF:{kv.Key}:{roundedValue}");
+                }
+            }
+
+            // 초기 상태이거나 값이 없으면 기본 해시
+            if (allValues.Count == 0)
             {
                 return "00000000";
             }
 
-            // Core Value 점수만 사용 (알파벳 순서로 정렬)
-            var sortedList = new List<KeyValuePair<string, int>>(coreValueScores);
-            sortedList.Sort((a, b) => string.Compare(a.Key, b.Key));
-
-            var roundedValues = new List<string>();
-            foreach (var kv in sortedList)
-            {
-                int roundedValue = (kv.Value / 10) * 10; // 10단위 반올림
-                roundedValues.Add($"{kv.Key}:{roundedValue}");
-            }
-
-            string stateString = string.Join(",", roundedValues.ToArray());
+            string stateString = string.Join(",", allValues.ToArray());
             int hash = stateString.GetHashCode();
 
             // 8자리 16진수 문자열 (예: "A1B2C3D4")

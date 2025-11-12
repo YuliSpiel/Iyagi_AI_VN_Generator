@@ -158,7 +158,7 @@ namespace IyagiAI.Runtime
         /// <summary>
         /// 챕터 요약 생성 (다음 챕터의 맥락으로 사용)
         /// </summary>
-        public IEnumerator GenerateChapterSummary(int chapterId, List<DialogueRecord> records, System.Action<string> onComplete)
+        public IEnumerator GenerateChapterSummary(int chapterId, List<DialogueRecord> records, GameStateSnapshot state, System.Action<string> onComplete)
         {
             if (records == null || records.Count == 0)
             {
@@ -181,15 +181,31 @@ namespace IyagiAI.Runtime
 
             string chapterDialogue = sb.ToString();
 
+            // 현재 친밀도 상태
+            string affectionContext = "";
+            if (state != null && state.characterAffections != null && state.characterAffections.Count > 0)
+            {
+                var sb2 = new System.Text.StringBuilder();
+                sb2.AppendLine("\nCurrent Character Relationships:");
+                foreach (var kv in state.characterAffections)
+                {
+                    string relationshipLevel = kv.Value >= 70 ? "Close" : (kv.Value >= 50 ? "Friendly" : (kv.Value >= 30 ? "Neutral" : "Distant"));
+                    sb2.AppendLine($"  - {kv.Key}: {kv.Value} ({relationshipLevel})");
+                }
+                affectionContext = sb2.ToString();
+            }
+
             // AI에게 요약 요청
             string summaryPrompt = $@"You are a story summarizer for a visual novel game.
 
 Summarize the following chapter in 2-3 sentences that capture:
 1. The main events that happened
-2. Key character interactions or developments
+2. Key character interactions or relationship developments
 3. Any important plot points or revelations
+4. Notable changes in character relationships (if affection scores changed significantly)
 
-Keep it concise and focused on story progression (not player choices).
+Keep it concise and focused on story progression.
+{affectionContext}
 
 Chapter Dialogue:
 {chapterDialogue}
@@ -270,6 +286,49 @@ Continue the story naturally from where it left off.
 {stateInfo}
 {contextSection}
 
+# CRITICAL - Character Relationship Dynamics
+**The affection scores above DIRECTLY AFFECT NPC dialogue tone and reactions.**
+
+**IMPORTANT**: NPCs MUST still appear in scenes and interact with the player regardless of affection level.
+Low affection changes HOW they interact, NOT whether they interact.
+
+Affection-Based Dialogue Variations:
+- **High Affection (70+)**:
+  * NPC actively helps the player, offers support willingly
+  * NPC shares personal stories or secrets
+  * NPC shows concern when player is in danger
+  * Dialogue is warm, affectionate, remembers past interactions
+  * NPC may initiate romantic/intimate moments
+  * Example: "Of course I'll help! We're in this together."
+
+- **Medium Affection (50-69)**:
+  * NPC cooperates but maintains professional distance
+  * NPC gives advice but doesn't get emotionally involved
+  * Dialogue is friendly but neutral
+  * NPC treats player as colleague/acquaintance
+  * Example: "Fine, I'll help. But let's keep this professional."
+
+- **Low Affection (30-49)**:
+  * NPC still participates but shows reluctance or skepticism
+  * NPC questions player's decisions openly
+  * Dialogue is distant, skeptical, brief
+  * NPC needs convincing or demands something in return
+  * Example: "Why should I trust you? Prove you're worth it."
+
+- **Very Low Affection (<30)**:
+  * NPC STILL appears in scenes (story must progress)
+  * Dialogue is cold, hostile, sarcastic, or dismissive
+  * NPC openly disagrees or criticizes player's plans
+  * NPC may create minor obstacles or complain frequently
+  * NPC cooperates ONLY when forced by circumstances
+  * Example: "Ugh, fine. But I'm doing this for myself, not you."
+
+**CRITICAL**: Generate different REACTIONS based on affection:
+- High-affection NPCs should have ENTHUSIASTIC, SUPPORTIVE dialogue
+- Low-affection NPCs should have RELUCTANT, CRITICAL dialogue
+- NPCs MUST still appear in scenes to maintain story progression
+- Player choices should allow opportunities to INCREASE or DECREASE affection
+
 # CRITICAL - Chapter-Level Convergence Structure
 This chapter has a FIXED NARRATIVE ARC that all players experience:
 
@@ -315,6 +374,8 @@ Generate Scene {sceneNumber} of {totalScenes} for Chapter {chapterId}.
 **CRITICAL for Scene {sceneNumber}:**
 {(sceneNumber == 3 || sceneNumber == 4 || sceneNumber == 5 ? "- This scene MUST include 1 CHOICE with 2 OPTIONS" : "- This scene should NOT have choices (setup or conclusion)")}
 {(sceneNumber == 3 || sceneNumber == 4 || sceneNumber == 5 ? "- Each option MUST have skill_impact with change values of 10-15" : "")}
+{(sceneNumber == 3 || sceneNumber == 4 || sceneNumber == 5 ? "- Each option SHOULD have affection_impact (+10 or -10) for relevant NPCs" : "")}
+- Scene content and NPC behavior MUST reflect current affection scores (see Character Relationship Dynamics above)
 
 Output ONLY a JSON array of 10 dialogue lines.
 
@@ -406,7 +467,33 @@ CRITICAL - Choice Impact Rules:
 - Each choice should affect 1-2 relevant derived skills with BALANCED impact (10-15 points)
 - Use skill names EXACTLY as listed in the Core Values section above
 - With 3 chapters × 3 choices × 12 average points = 108 total points possible per skill
-- This ensures diverse endings without extreme polarization!";
+- This ensures diverse endings without extreme polarization!
+
+EXAMPLE - Affection-Based Story Variation:
+
+**Scenario: Player needs NPC's help for a dangerous mission**
+
+IF NPC Affection = 80 (High):
+  NPC: ""Of course I'll help you! We've been through so much together. I wouldn't let you face this alone.""
+  [NPC eagerly participates, shows concern, offers resources without hesitation]
+
+IF NPC Affection = 55 (Medium):
+  NPC: ""I'll help, but this is risky. Let's make a plan first and minimize the danger.""
+  [NPC cooperates but maintains cautious tone, gives practical advice]
+
+IF NPC Affection = 35 (Low):
+  NPC: ""Fine, I'll help. But don't expect me to go out of my way for you. What's in it for me?""
+  [NPC participates reluctantly, complains, demands compensation, but DOES participate]
+
+IF NPC Affection = 20 (Very Low):
+  NPC: ""Ugh, seriously? Fine, but only because I need this mission to succeed too. Don't talk to me unless necessary.""
+  [NPC STILL participates but is hostile, sarcastic, openly criticizes player, minimal cooperation]
+
+**CRITICAL**:
+- Apply this logic throughout the chapter
+- NPCs MUST appear in scenes regardless of affection (story progression requirement)
+- Low affection = HOSTILE PARTICIPATION, not absence
+- Affection only changes TONE and ATTITUDE, not whether NPC appears";
 
             return prompt;
         }

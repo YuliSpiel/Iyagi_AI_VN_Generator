@@ -6,7 +6,12 @@ namespace IyagiAI.Runtime
 {
     /// <summary>
     /// 엔딩 결정 매니저
-    /// Core Value 점수 + NPC 호감도를 조합하여 엔딩 분기
+    /// Core Value 점수 + NPC 친밀도를 조합하여 엔딩 분기
+    ///
+    /// 엔딩 조건:
+    /// - TrueEnding: Core Value 70+ AND 친밀도 70+
+    /// - ValueEnding: Core Value 60+ (친밀도 무관)
+    /// - NormalEnding: 모든 조건 미달
     /// </summary>
     public class EndingManager : MonoBehaviour
     {
@@ -120,6 +125,7 @@ namespace IyagiAI.Runtime
 
         /// <summary>
         /// 트루 엔딩 조건 체크
+        /// Core Value + 친밀도 모두 고려
         /// </summary>
         private bool IsTrueEnding(GameStateSnapshot state, string dominantValue)
         {
@@ -144,16 +150,34 @@ namespace IyagiAI.Runtime
             }
 
             int trueValueScore = state.coreValueScores[projectData.trueValueName];
-            bool highEnough = trueValueScore >= 70;
+            bool valueHighEnough = trueValueScore >= 70;
 
-            Debug.Log($"[EndingManager] True value score: {trueValueScore} (threshold: 70, passed: {highEnough})");
+            Debug.Log($"[EndingManager] True value score: {trueValueScore} (threshold: 70, passed: {valueHighEnough})");
 
-            return highEnough;
+            // 4. 친밀도 조건 체크: 최소 1명의 NPC와 높은 친밀도 (70+)
+            int maxAffection = GetMaxAffection(state);
+            bool affectionHighEnough = maxAffection >= 70;
+
+            Debug.Log($"[EndingManager] Max affection: {maxAffection} (threshold: 70, passed: {affectionHighEnough})");
+
+            // True Ending 조건: Core Value 70+ AND 친밀도 70+
+            bool isTrueEnding = valueHighEnough && affectionHighEnough;
+
+            if (isTrueEnding)
+            {
+                Debug.Log($"[EndingManager] ✅ True Ending conditions met: Value={trueValueScore}, Affection={maxAffection}");
+            }
+            else if (valueHighEnough && !affectionHighEnough)
+            {
+                Debug.Log($"[EndingManager] ❌ True Ending failed: High value but low affection (max: {maxAffection})");
+            }
+
+            return isTrueEnding;
         }
 
 
         /// <summary>
-        /// Value 엔딩 조건 체크 (Core Value만 높음, NPC 친밀도 부족)
+        /// Value 엔딩 조건 체크 (Core Value 높음, 친밀도 중간 수준)
         /// </summary>
         private bool IsValueEnding(GameStateSnapshot state, string dominantValue)
         {
@@ -164,11 +188,28 @@ namespace IyagiAI.Runtime
             }
 
             int valueScore = state.coreValueScores[dominantValue];
-            bool highEnough = valueScore >= 60;
+            bool valueHighEnough = valueScore >= 60;
 
-            Debug.Log($"[EndingManager] Value ending check: {dominantValue}={valueScore} (threshold: 60, passed: {highEnough})");
+            // 2. 친밀도 체크: 중간 수준 (50+) 또는 Core Value만 높은 경우
+            int maxAffection = GetMaxAffection(state);
 
-            return highEnough;
+            Debug.Log($"[EndingManager] Value ending check: {dominantValue}={valueScore} (threshold: 60), Max affection={maxAffection}");
+
+            // Value Ending 조건: Core Value 60+ (친밀도는 참고용으로만 사용)
+            return valueHighEnough;
+        }
+
+        /// <summary>
+        /// 최고 친밀도 점수 반환
+        /// </summary>
+        private int GetMaxAffection(GameStateSnapshot state)
+        {
+            if (state.characterAffections == null || state.characterAffections.Count == 0)
+            {
+                return 0;
+            }
+
+            return state.characterAffections.Values.Max();
         }
     }
 
@@ -177,8 +218,8 @@ namespace IyagiAI.Runtime
     /// </summary>
     public enum EndingType
     {
-        TrueEnding,     // 트루 엔딩 (특정 Core Value 70+)
-        ValueEnding,    // Value 엔딩 (Dominant Value 60+)
+        TrueEnding,     // 트루 엔딩 (Core Value 70+ AND 친밀도 70+)
+        ValueEnding,    // Value 엔딩 (Core Value 60+, 친밀도 무관)
         NormalEnding    // 일반 엔딩 (모든 조건 미달)
     }
 
