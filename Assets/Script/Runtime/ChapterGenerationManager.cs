@@ -55,10 +55,10 @@ namespace IyagiAI.Runtime
                 yield break;
             }
 
-            // 3. 씬 단위로 분할 생성 (3개 씬)
-            Debug.Log($"[ChapterGenerationManager] Generating chapter {chapterId} in 3 scenes");
+            // 3. 씬 단위로 분할 생성 (6개 씬: 선택지 3개 포함)
+            Debug.Log($"[ChapterGenerationManager] Generating chapter {chapterId} in 6 scenes");
 
-            int totalScenes = 3;
+            int totalScenes = 6;
             List<DialogueRecord> allRecords = new List<DialogueRecord>();
             string previousScenesContext = "";
             int cumulativeLineCount = 0; // 누적된 라인 수 (씬 간 ID 중복 방지용)
