@@ -34,7 +34,8 @@ namespace IyagiAI.Runtime
         private const int MAX_SAVE_SLOTS = 10;
 
         private string SaveFolderPath => Path.Combine(Application.persistentDataPath, SAVE_FOLDER);
-        private string ProjectSlotsFile => Path.Combine(SaveFolderPath, "projects.json");
+        private string SaveDataFolderPath => Path.Combine(Application.persistentDataPath, "SaveData");
+        private string ProjectSlotsFile => Path.Combine(SaveDataFolderPath, "ProjectSlots.json");
 
         private List<ProjectSlot> projectSlots = new List<ProjectSlot>();
 
@@ -53,6 +54,12 @@ namespace IyagiAI.Runtime
             if (!Directory.Exists(SaveFolderPath))
             {
                 Directory.CreateDirectory(SaveFolderPath);
+            }
+
+            // SaveData 폴더 생성
+            if (!Directory.Exists(SaveDataFolderPath))
+            {
+                Directory.CreateDirectory(SaveDataFolderPath);
             }
 
             LoadAllProjectSlots();
@@ -442,6 +449,46 @@ namespace IyagiAI.Runtime
                     return;
                 }
             }
+        }
+
+        /// <summary>
+        /// 현재 SaveFile을 업데이트 (챕터 진행 상황 및 게임 상태 저장)
+        /// </summary>
+        public void UpdateSaveFile(string saveFileId, int currentChapter, GameStateSnapshot stateSnapshot)
+        {
+            if (string.IsNullOrEmpty(saveFileId))
+            {
+                Debug.LogWarning("[SaveDataManager] UpdateSaveFile: saveFileId is null or empty");
+                return;
+            }
+
+            foreach (var project in projectSlots)
+            {
+                var saveFile = project.saveFiles.FirstOrDefault(s => s.saveFileId == saveFileId);
+                if (saveFile != null)
+                {
+                    // 챕터 정보 업데이트
+                    saveFile.currentChapter = currentChapter;
+                    saveFile.lastPlayedDate = DateTime.Now;
+
+                    // GameStateSnapshot → GameState 변환
+                    if (saveFile.gameState == null)
+                    {
+                        saveFile.gameState = new GameState();
+                    }
+
+                    saveFile.gameState.coreValueScores = new Dictionary<string, int>(stateSnapshot.coreValueScores);
+                    saveFile.gameState.skillScores = new Dictionary<string, int>(stateSnapshot.skillScores);
+                    saveFile.gameState.npcAffections = new Dictionary<string, int>(stateSnapshot.characterAffections);
+                    saveFile.gameState.previousChoices = new List<string>(stateSnapshot.previousChoices);
+
+                    SaveAllProjectSlots();
+                    Debug.Log($"[SaveDataManager] Updated SaveFile: {saveFileId} (Chapter {currentChapter})");
+                    return;
+                }
+            }
+
+            Debug.LogWarning($"[SaveDataManager] SaveFile not found for update: {saveFileId}");
         }
 
         // ===== CG 컬렉션 관리 =====

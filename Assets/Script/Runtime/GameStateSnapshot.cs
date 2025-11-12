@@ -25,6 +25,9 @@ namespace IyagiAI.Runtime
         // 선택 히스토리 (이전 선택들)
         public List<string> previousChoices = new List<string>();
 
+        // 챕터 요약 (챕터 번호 → 요약 텍스트)
+        public Dictionary<int, string> chapterSummaries = new Dictionary<int, string>();
+
         // 해금된 CG 목록
         public List<string> unlockedCGs = new List<string>();
 
@@ -76,6 +79,15 @@ namespace IyagiAI.Runtime
             if (previousChoices != null && previousChoices.Count > 0)
             {
                 sb.AppendLine($"Previous Choices: {string.Join(", ", previousChoices.ToArray())}");
+            }
+
+            if (chapterSummaries != null && chapterSummaries.Count > 0)
+            {
+                sb.AppendLine("\nPrevious Chapters:");
+                foreach (var kv in chapterSummaries)
+                {
+                    sb.AppendLine($"  Chapter {kv.Key}: {kv.Value}");
+                }
             }
 
             return sb.ToString();
