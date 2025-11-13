@@ -110,10 +110,11 @@ namespace IyagiAI.SetupWizard
             step4.nameInput.text = "이시혁";
             step4.ageInput.text = "25";
             step4.genderDropdown.value = (int)Gender.Male;
-            step4.povDropdown.value = (int)POV.FirstPerson;
             step4.archetypeDropdown.value = (int)Archetype.Hero;
             step4.appearanceInput.text = "검은 머리에 갈색 눈을 가진 날카로운 외모의 청년";
             step4.personalityInput.text = "성취욕이 크고 지능적인 성격";
+            if (step4.sampleDialogueInput != null)
+                step4.sampleDialogueInput.text = "이건 내 방식이야. 이기든, 지든 내 선택으로 끝내겠어.";
 
             // Stub 얼굴 이미지 생성
             yield return CreateStubFaceImage(step4.faceGenerator);
@@ -137,6 +138,8 @@ namespace IyagiAI.SetupWizard
             step5.roleInput.text = "친구";
             step5.appearanceInput.text = "긴 갈색 머리와 검은 눈을 가진 아름다운 여성";
             step5.personalityInput.text = "똑똑하고 신중한 성격";
+            if (step5.sampleDialogueInput != null)
+                step5.sampleDialogueInput.text = "그건 좀 무리야. 차라리 이렇게 해보는 건 어때?";
             step5.romanceableToggle.isOn = true;
 
             // Stub 얼굴 이미지 생성

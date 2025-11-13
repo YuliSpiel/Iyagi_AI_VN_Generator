@@ -20,10 +20,10 @@ namespace IyagiAI.SetupWizard
         public TMP_InputField nameInput;
         public TMP_InputField ageInput;
         public TMP_Dropdown genderDropdown;
-        public TMP_Dropdown povDropdown;
         public TMP_Dropdown archetypeDropdown;
         public TMP_InputField appearanceInput;
         public TMP_InputField personalityInput;
+        public TMP_InputField sampleDialogueInput; // 말투 예시
 
         [Header("Face Preview UI")]
         public Image previewImage; // 얼굴 프리뷰 표시
@@ -95,15 +95,6 @@ namespace IyagiAI.SetupWizard
                 "남성",
                 "여성",
                 "논바이너리"
-            });
-
-            // POV (한국어)
-            povDropdown.ClearOptions();
-            povDropdown.AddOptions(new System.Collections.Generic.List<string>
-            {
-                "1인칭",
-                "2인칭",
-                "3인칭"
             });
 
             // Archetype (한국어)
@@ -210,8 +201,9 @@ JSON 형식으로만 출력:
 4. 성격은 2-3가지 주요 특징으로 풍부하게
 5. 나이는 게임 톤에 맞게 자동 추천
 6. 성별과 아키타입도 입력과 게임 내용에 맞게 추천
-7. 오타, 맞춤법 수정
-8. 애매한 표현은 명확하게
+7. 말투 예시: 캐릭터의 성격이 드러나는 대표적인 대사 1-2문장 생성 (존댓말/반말, 말끝 습관 포함)
+8. 오타, 맞춤법 수정
+9. 애매한 표현은 명확하게
 
 JSON 형식으로만 출력:
 {{
@@ -220,7 +212,8 @@ JSON 형식으로만 출력:
   ""gender"": ""Male/Female/NonBinary 중 하나"",
   ""appearance"": ""풍부해진 외모 설명"",
   ""personality"": ""풍부해진 성격 설명"",
-  ""archetype"": ""Hero/Strategist/Innocent/Rebel/Mentor/Trickster 중 하나""
+  ""archetype"": ""Hero/Strategist/Innocent/Rebel/Mentor/Trickster 중 하나"",
+  ""sampleDialogue"": ""캐릭터의 말투를 보여주는 대사 예시""
 }}";
             }
 
@@ -280,6 +273,8 @@ JSON 형식으로만 출력:
                     appearanceInput.text = data.appearance;
                 if (personalityInput != null && !string.IsNullOrEmpty(data.personality))
                     personalityInput.text = data.personality;
+                if (sampleDialogueInput != null && !string.IsNullOrEmpty(data.sampleDialogue))
+                    sampleDialogueInput.text = data.sampleDialogue;
 
                 // Gender 설정
                 if (genderDropdown != null && !string.IsNullOrEmpty(data.gender))
@@ -384,9 +379,9 @@ JSON 형식으로만 출력:
             character.characterName = nameInput.text;
             character.age = int.Parse(ageInput.text);
             character.gender = (Gender)genderDropdown.value;
-            character.pov = (POV)povDropdown.value;
             character.appearanceDescription = appearanceInput.text;
             character.personality = personalityInput.text;
+            character.sampleDialogue = sampleDialogueInput != null ? sampleDialogueInput.text : ""; // 말투 예시
             character.archetype = (Archetype)archetypeDropdown.value;
             character.confirmedSeed = faceGenerator.GetCurrentSeed();
             character.resourcePath = $"Generated/Characters/{character.characterName}"; // Resources.Load 경로 설정
@@ -477,6 +472,7 @@ JSON 형식으로만 출력:
             public string appearance;
             public string personality;
             public string archetype;
+            public string sampleDialogue;
         }
     }
 }

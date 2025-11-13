@@ -15,7 +15,6 @@ namespace IyagiAI.Runtime
         public string role; // NPC 전용: "친구", "멘토", "라이벌" 등
         public int age;
         public Gender gender;
-        public POV pov; // 플레이어 전용
 
         [Header("Visual")]
         [TextArea(3, 5)]
@@ -33,7 +32,10 @@ namespace IyagiAI.Runtime
         public string background;
 
         public Archetype archetype;
-        public List<string> speechExamples = new List<string>(); // 말투 예시
+
+        [Header("Speech Style")]
+        [TextArea(2, 4)]
+        public string sampleDialogue; // 말투 예시 (1-2문장)
 
         [Header("Gameplay (NPC만)")]
         public bool isRomanceable;
@@ -103,7 +105,6 @@ namespace IyagiAI.Runtime
     // ===== Enums =====
 
     public enum Gender { Male, Female, NonBinary }
-    public enum POV { FirstPerson, SecondPerson, ThirdPerson }
     public enum Archetype { Hero, Strategist, Innocent, Rebel, Mentor, Trickster }
 
     /// <summary>

@@ -39,7 +39,6 @@ public class CreateEndingTestProject : EditorWindow
         player.characterName = "주인공";
         player.age = 18;
         player.gender = Gender.Male;
-        player.pov = POV.FirstPerson;
         player.archetype = Archetype.Hero;
         player.appearanceDescription = "검은 머리, 푸른 눈";
         player.personality = "용감하고 정의로운";

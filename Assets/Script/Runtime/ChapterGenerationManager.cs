@@ -239,11 +239,24 @@ Output ONLY the summary text (no JSON, no formatting).";
         /// </summary>
         private string BuildScenePrompt(int chapterId, int sceneNumber, int totalScenes, GameStateSnapshot state, string previousScenes = "")
         {
-            // 캐릭터 목록
-            string characterList = $"Player: {projectData.playerCharacter.characterName}";
+            // 캐릭터 목록 (말투 예시 포함)
+            string characterList = "";
+
+            // Player 캐릭터
+            characterList += $"\n  - Player: {projectData.playerCharacter.characterName}";
+            if (!string.IsNullOrEmpty(projectData.playerCharacter.sampleDialogue))
+            {
+                characterList += $"\n    Speech Style: \"{projectData.playerCharacter.sampleDialogue}\"";
+            }
+
+            // NPCs
             foreach (var npc in projectData.npcs)
             {
-                characterList += $", {npc.characterName}";
+                characterList += $"\n  - NPC: {npc.characterName}";
+                if (!string.IsNullOrEmpty(npc.sampleDialogue))
+                {
+                    characterList += $"\n    Speech Style: \"{npc.sampleDialogue}\"";
+                }
             }
 
             // Core Values 및 Derived Skills 목록
@@ -503,11 +516,24 @@ IF NPC Affection = 20 (Very Low):
         /// </summary>
         private string BuildChapterPrompt(int chapterId, GameStateSnapshot state)
         {
-            // 캐릭터 목록
-            string characterList = $"Player: {projectData.playerCharacter.characterName}";
+            // 캐릭터 목록 (말투 예시 포함)
+            string characterList = "";
+
+            // Player 캐릭터
+            characterList += $"\n  - Player: {projectData.playerCharacter.characterName}";
+            if (!string.IsNullOrEmpty(projectData.playerCharacter.sampleDialogue))
+            {
+                characterList += $"\n    Speech Style: \"{projectData.playerCharacter.sampleDialogue}\"";
+            }
+
+            // NPCs
             foreach (var npc in projectData.npcs)
             {
-                characterList += $", {npc.characterName}";
+                characterList += $"\n  - NPC: {npc.characterName}";
+                if (!string.IsNullOrEmpty(npc.sampleDialogue))
+                {
+                    characterList += $"\n    Speech Style: \"{npc.sampleDialogue}\"";
+                }
             }
 
             // Core Values 및 Derived Skills 목록
@@ -1049,29 +1075,28 @@ Resolution: 1920×1080.";
         }
 
         /// <summary>
-        /// 가장 높은 Core Value 가져오기
-        /// </summary>
-        private string GetDominantCoreValue(GameStateSnapshot state)
-        {
-            if (state.coreValueScores == null || state.coreValueScores.Count == 0)
-            {
-                return null;
-            }
-
-            var maxValue = state.coreValueScores.OrderByDescending(kv => kv.Value).First();
-            return maxValue.Key;
-        }
-
-        /// <summary>
         /// 엔딩 씬 프롬프트 빌드
         /// </summary>
         private string BuildEndingPrompt(string endingType, GameStateSnapshot state)
         {
-            // 캐릭터 목록
-            string characterList = $"Player: {projectData.playerCharacter.characterName}";
+            // 캐릭터 목록 (말투 예시 포함)
+            string characterList = "";
+
+            // Player 캐릭터
+            characterList += $"\n  - Player: {projectData.playerCharacter.characterName}";
+            if (!string.IsNullOrEmpty(projectData.playerCharacter.sampleDialogue))
+            {
+                characterList += $"\n    Speech Style: \"{projectData.playerCharacter.sampleDialogue}\"";
+            }
+
+            // NPCs
             foreach (var npc in projectData.npcs)
             {
-                characterList += $", {npc.characterName}";
+                characterList += $"\n  - NPC: {npc.characterName}";
+                if (!string.IsNullOrEmpty(npc.sampleDialogue))
+                {
+                    characterList += $"\n    Speech Style: \"{npc.sampleDialogue}\"";
+                }
             }
 
             // Core Values 점수

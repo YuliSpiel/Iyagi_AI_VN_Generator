@@ -37,7 +37,6 @@ namespace IyagiAI.Editor
             player.characterName = "주인공";
             player.age = 20;
             player.gender = Gender.Male;
-            player.pov = POV.FirstPerson;
             player.appearanceDescription = "검은 머리의 평범한 청년";
             player.personality = "성실하고 친절한 성격";
             player.archetype = Archetype.Hero;

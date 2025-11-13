@@ -64,7 +64,6 @@ namespace IyagiAI.SetupWizard
 이름: {data.playerCharacter.characterName}
 나이: {data.playerCharacter.age}
 성별: {data.playerCharacter.gender}
-시점: {data.playerCharacter.pov}
 아키타입: {data.playerCharacter.archetype}
 외모: {data.playerCharacter.appearanceDescription}
 성격: {data.playerCharacter.personality}

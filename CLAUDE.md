@@ -118,6 +118,11 @@ Iyagi AI VN Generator는 최소한의 입력(제목 + 줄거리)만으로 완전
 - JSON 잘림 문제 해결을 위해 챕터를 3개 씬으로 분할 생성
 - 각 씬당 3-5개 대사만 생성하여 안정성 향상
 
+### Character Speech Style System (2025-01-13)
+- Setup Wizard에서 캐릭터별 말투 예시 입력 가능
+- LLM 챕터 생성 시 각 캐릭터의 말투 예시를 프롬프트에 포함
+- 캐릭터별 일관된 말투 유지
+
 자세한 내용은 [systemdocs/implementation-history.md](systemdocs/implementation-history.md)를 참조하세요.
 
 ---
@@ -400,5 +405,98 @@ private bool IsMajorFlag(string flag) {
 
 ---
 
+## 🗣️ Character Speech Style System (말투 시스템)
+
+### 개요
+
+각 캐릭터의 고유한 말투를 일관되게 유지하기 위해, Setup Wizard에서 캐릭터별 **말투 예시(Sample Dialogue)**를 입력받아 LLM 챕터 생성 시 프롬프트에 포함합니다.
+
+### 구현 방식
+
+#### 1. 데이터 구조
+
+```csharp
+// CharacterData.cs
+public class CharacterData : ScriptableObject
+{
+    [Header("Speech Style")]
+    [TextArea(2, 4)]
+    public string sampleDialogue; // 말투 예시 (1-2문장)
+}
+```
+
+#### 2. Setup Wizard 입력
+
+**Step 4 (Player Character) / Step 5 (NPCs)**:
+- `sampleDialogueInput` 필드 추가
+- 사용자가 캐릭터별로 대표적인 대사 1-2문장 입력
+- 예시:
+  - 플레이어: "이건 내 방식이야. 이기든, 지든 내 선택으로 끝내겠어."
+  - NPC: "그건 좀 무리야. 차라리 이렇게 해보는 건 어때?"
+
+#### 3. LLM 프롬프트 생성
+
+```csharp
+// ChapterGenerationManager.cs - BuildScenePrompt()
+string characterList = "";
+
+// Player 캐릭터
+characterList += $"\n  - Player: {playerCharacter.characterName}";
+if (!string.IsNullOrEmpty(playerCharacter.sampleDialogue))
+{
+    characterList += $"\n    Speech Style: \"{playerCharacter.sampleDialogue}\"";
+}
+
+// NPCs
+foreach (var npc in npcs)
+{
+    characterList += $"\n  - NPC: {npc.characterName}";
+    if (!string.IsNullOrEmpty(npc.sampleDialogue))
+    {
+        characterList += $"\n    Speech Style: \"{npc.sampleDialogue}\"";
+    }
+}
+```
+
+**프롬프트 예시**:
+```
+# Game Information
+- Characters:
+  - Player: 이시혁
+    Speech Style: "이건 내 방식이야. 이기든, 지든 내 선택으로 끝내겠어."
+  - NPC: 유해리
+    Speech Style: "그건 좀 무리야. 차라리 이렇게 해보는 건 어때?"
+```
+
+### 효과
+
+1. **일관된 캐릭터성**: LLM이 각 캐릭터의 말투를 참고하여 대사 생성
+2. **작가 의도 반영**: 사용자가 원하는 캐릭터 성격을 말투로 표현 가능
+3. **빠른 설정**: 긴 성격 설명 대신 1-2문장으로 말투 정의
+
+### 말투 예시 작성 가이드
+
+- **길이**: 1-2문장 (짧고 명확하게)
+- **특징 강조**: 존댓말/반말, 말끝 습관, 어휘 선택 등
+- **감정 표현**: 캐릭터의 기본 태도나 성격 드러내기
+
+**좋은 예시**:
+- "네, 알겠습니다! 제가 도와드릴게요!" (밝고 적극적인 성격)
+- "...그럴 수도 있겠네. 뭐, 상관없지만." (무덤덤하고 소극적)
+- "하! 웃기는 소리 하고 있네. 네 실력으로?" (도발적이고 자신감 넘침)
+
+**나쁜 예시**:
+- "안녕하세요." (너무 평범, 특징 없음)
+- "저는 친절하고 착한 사람입니다." (설명문, 대사가 아님)
+
+### 관련 파일
+
+- [Assets/Script/Runtime/CharacterData.cs](Assets/Script/Runtime/CharacterData.cs#L37-L39) - sampleDialogue 필드
+- [Assets/Script/SetupWizard/Step4_PlayerCharacter.cs](Assets/Script/SetupWizard/Step4_PlayerCharacter.cs#L27) - 플레이어 말투 입력
+- [Assets/Script/SetupWizard/Step5_NPCs.cs](Assets/Script/SetupWizard/Step5_NPCs.cs#L27) - NPC 말투 입력
+- [Assets/Script/Runtime/ChapterGenerationManager.cs](Assets/Script/Runtime/ChapterGenerationManager.cs#L242-L258) - 프롬프트에 말투 포함
+
+---
+
 **Last Updated**: 2025-01-13
-**Document Version**: 3.2 (Alternating Branching Strategy Added)
+**Document Version**: 3.3 (Character Speech Style System Added)

@@ -24,6 +24,7 @@ namespace IyagiAI.SetupWizard
         public TMP_InputField roleInput; // NPC 전용 (예: "Friend", "Rival", "Mentor")
         public TMP_InputField appearanceInput;
         public TMP_InputField personalityInput;
+        public TMP_InputField sampleDialogueInput; // 말투 예시
         public Toggle romanceableToggle;
 
         [Header("Face Preview UI")]
@@ -191,6 +192,7 @@ namespace IyagiAI.SetupWizard
 6. 성격은 2-3가지 주요 특징으로
 7. 성별은 기존 캐릭터들과 다양성 있게
 8. 아키타입은 게임 줄거리에 맞게 선택
+9. 말투 예시: 캐릭터의 성격이 드러나는 대표적인 대사 1-2문장 생성 (존댓말/반말, 말끝 습관 포함)
 
 JSON 형식으로만 출력:
 {{
@@ -201,7 +203,8 @@ JSON 형식으로만 출력:
   ""appearance"": ""외모 상세 설명 (얼굴, 머리, 체형, 옷차림 등)"",
   ""personality"": ""성격 설명"",
   ""archetype"": ""Hero/Strategist/Innocent/Rebel/Mentor/Trickster 중 하나"",
-  ""romanceable"": true
+  ""romanceable"": true,
+  ""sampleDialogue"": ""캐릭터의 말투를 보여주는 대사 예시""
 }}";
             }
             else
@@ -235,8 +238,9 @@ JSON 형식으로만 출력:
 6. 나이는 게임 톤에 맞게 자동 추천
 7. 성별과 아키타입도 입력과 게임 내용에 맞게 추천
 8. 연애 가능 여부도 자동 추천
-9. 오타, 맞춤법 수정
-10. 애매한 표현은 명확하게
+9. 말투 예시: 캐릭터의 성격이 드러나는 대표적인 대사 1-2문장 생성 (존댓말/반말, 말끝 습관 포함)
+10. 오타, 맞춤법 수정
+11. 애매한 표현은 명확하게
 
 JSON 형식으로만 출력:
 {{
@@ -247,7 +251,8 @@ JSON 형식으로만 출력:
   ""appearance"": ""풍부해진 외모 설명"",
   ""personality"": ""풍부해진 성격 설명"",
   ""archetype"": ""Hero/Strategist/Innocent/Rebel/Mentor/Trickster 중 하나"",
-  ""romanceable"": true
+  ""romanceable"": true,
+  ""sampleDialogue"": ""캐릭터의 말투를 보여주는 대사 예시""
 }}";
             }
 
@@ -309,6 +314,8 @@ JSON 형식으로만 출력:
                     appearanceInput.text = data.appearance;
                 if (personalityInput != null && !string.IsNullOrEmpty(data.personality))
                     personalityInput.text = data.personality;
+                if (sampleDialogueInput != null && !string.IsNullOrEmpty(data.sampleDialogue))
+                    sampleDialogueInput.text = data.sampleDialogue;
                 if (romanceableToggle != null)
                     romanceableToggle.isOn = data.romanceable;
 
@@ -418,6 +425,7 @@ JSON 형식으로만 출력:
             npc.role = roleInput.text;
             npc.appearanceDescription = appearanceInput.text;
             npc.personality = personalityInput.text;
+            npc.sampleDialogue = sampleDialogueInput != null ? sampleDialogueInput.text : ""; // 말투 예시
             npc.archetype = (Archetype)archetypeDropdown.value;
             npc.confirmedSeed = faceGenerator.GetCurrentSeed();
             npc.resourcePath = $"Generated/Characters/{npc.characterName}";
@@ -562,6 +570,7 @@ JSON 형식으로만 출력:
             public string personality;
             public string archetype;
             public bool romanceable;
+            public string sampleDialogue;
         }
     }
 }

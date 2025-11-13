@@ -40,7 +40,6 @@ namespace IyagiAI.Editor
             player.characterName = "Elian";
             player.age = 25;
             player.gender = Gender.Male;
-            player.pov = POV.FirstPerson;
             player.appearanceDescription = "은색 머리의 침착한 청년";
             player.personality = "냉정하고 분석적인 성격";
             player.archetype = Archetype.Strategist;
