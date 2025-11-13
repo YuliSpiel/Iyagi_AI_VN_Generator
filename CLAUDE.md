@@ -122,5 +122,86 @@ Iyagi AI VN Generator는 최소한의 입력(제목 + 줄거리)만으로 완전
 
 ---
 
-**Last Updated**: 2025-01-11
-**Document Version**: 3.0 (Modular Documentation Structure)
+## ⚠️ 중요: 선택지 버그 방지 가이드
+
+### 문제: 선택지 클릭 시 잘못된 선택지 처리
+
+**증상**: 사용자가 선택지 A를 클릭했는데 선택지 B의 결과가 나타남
+
+**원인**: Unity UI Button의 onClick 리스너가 **한 번만 등록**되고, 선택지 개수가 변할 때마다 **갱신되지 않아** 발생하는 클로저 문제
+
+#### 잘못된 구현 (❌ 절대 금지!)
+
+```csharp
+// DialogueUI.cs - Start() 메서드
+void Start() {
+    for (int i = 0; i < choiceButtons.Length; i++) {
+        int index = i; // 클로저 캡처
+        choiceButtons[i].onClick.AddListener(() => OnChoiceClicked(index));
+    }
+}
+
+// DisplayChoices() 메서드
+void DisplayChoices(DialogueRecord record) {
+    for (int i = 0; i < choiceButtons.Length; i++) {
+        if (i < choiceCount) {
+            choiceButtons[i].gameObject.SetActive(true); // ❌ 리스너 재등록 안 함!
+        }
+    }
+}
+```
+
+**문제점**:
+1. Start()에서 4개 버튼 모두 리스너 등록 (index = 0, 1, 2, 3)
+2. 첫 번째 씬: 선택지 2개만 표시 → 버튼 0, 1 활성화
+3. 두 번째 씬: 선택지 3개 표시 → 버튼 0, 1, 2 활성화
+4. **버그 발생**: 버튼 2를 클릭했는데 Start()에서 등록한 잘못된 리스너가 호출됨
+
+#### 올바른 구현 (✅ 필수!)
+
+```csharp
+// DisplayChoices() 메서드
+void DisplayChoices(DialogueRecord record) {
+    int choiceCount = record.GetChoiceCount();
+
+    for (int i = 0; i < choiceButtons.Length; i++) {
+        // ✅ 기존 리스너 완전히 제거
+        choiceButtons[i].onClick.RemoveAllListeners();
+
+        if (i < choiceCount) {
+            int capturedIndex = i; // 클로저 캡처 (매번 새로 생성!)
+            string choiceText = record.GetString($"Choice{i + 1}");
+
+            // ✅ 리스너 다시 등록 (현재 선택지에 맞춰)
+            choiceButtons[i].onClick.AddListener(() => OnChoiceClicked(capturedIndex));
+            choiceTexts[i].text = choiceText;
+            choiceButtons[i].gameObject.SetActive(true);
+        } else {
+            choiceButtons[i].gameObject.SetActive(false);
+        }
+    }
+}
+```
+
+#### 핵심 원칙
+
+1. **선택지를 표시할 때마다 리스너를 재등록**해야 함
+2. `RemoveAllListeners()` → `AddListener()` 순서로 처리
+3. 클로저 변수는 **for 루프 안에서 매번 새로 캡처** (`int capturedIndex = i;`)
+4. Start()에서 한 번만 등록하는 방식은 **절대 금지**
+
+#### 테스트 체크리스트
+
+- [ ] 선택지 2개 → 3개 → 2개로 변하는 시나리오 테스트
+- [ ] 각 선택지 클릭 시 Debug.Log로 올바른 index 출력 확인
+- [ ] 연속된 선택지 씬에서 모든 버튼이 올바르게 동작하는지 확인
+
+#### 관련 파일
+
+- [Assets/Script/Runtime/DialogueUI.cs](Assets/Script/Runtime/DialogueUI.cs) - 선택지 표시 및 리스너 등록
+- [Assets/Script/Runtime/GameController.cs](Assets/Script/Runtime/GameController.cs) - OnChoiceSelected(int choiceIndex) 처리
+
+---
+
+**Last Updated**: 2025-01-13
+**Document Version**: 3.1 (Choice Button Listener Bug Prevention Guide Added)

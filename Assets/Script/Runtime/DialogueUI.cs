@@ -73,17 +73,8 @@ namespace IyagiAI.Runtime
                 logButton.onClick.AddListener(OnLogClicked);
 
             // Choice 버튼 초기화
-            if (choiceButtons != null)
-            {
-                for (int i = 0; i < choiceButtons.Length; i++)
-                {
-                    if (choiceButtons[i] != null)
-                    {
-                        int index = i; // 클로저 문제 방지
-                        choiceButtons[i].onClick.AddListener(() => OnChoiceClicked(index));
-                    }
-                }
-            }
+            // ✅ 리스너는 ShowChoicesAfterText()에서 선택지 표시할 때마다 등록됨
+            // Start()에서 미리 등록하면 클로저 문제 발생!
 
             // 초기 상태
             HideChoices();
@@ -203,6 +194,9 @@ namespace IyagiAI.Runtime
 
             for (int i = 0; i < choiceButtons.Length; i++)
             {
+                // ✅ 기존 리스너 완전히 제거 (중복 등록 방지)
+                choiceButtons[i].onClick.RemoveAllListeners();
+
                 if (i < choiceCount)
                 {
                     // Choice{i}_ENG, Choice{i}_KOR, Choice{i} 순으로 폴백
@@ -216,7 +210,13 @@ namespace IyagiAI.Runtime
                         choiceText = record.GetString($"Choice{i + 1}");
                     }
 
-                    Debug.Log($"[DialogueUI] Choice {i + 1}: {choiceText}");
+                    // ✅ 클로저 문제 방지: 현재 인덱스를 로컬 변수로 캡처
+                    int capturedIndex = i;
+
+                    // ✅ 리스너 다시 등록 (현재 선택지에 맞춰)
+                    choiceButtons[i].onClick.AddListener(() => OnChoiceClicked(capturedIndex));
+
+                    Debug.Log($"[DialogueUI] Choice {i + 1}: {choiceText} (index: {capturedIndex})");
                     choiceTexts[i].text = choiceText;
                     choiceButtons[i].gameObject.SetActive(true);
                 }
