@@ -43,7 +43,8 @@
 
 하단 문장:
 
-> 두 프로젝트 모두 "AI 간의 협업 구조"를 설계하는 실험입니다.
+> 두 프로젝트는 서로 다른 방식으로 AI 시스템을 설계한 실험입니다.
+> IYAGI: State-Aware Prompt Engineering | Kurz: Multi-Agent Orchestration
 >
 
 ---
@@ -248,42 +249,69 @@
 
 ---
 
-## 슬라이드 10. 공통 설계 철학
+## 슬라이드 10. 설계 철학: Single-Agent vs Multi-Agent
 
 **핵심 문장:**
 
-> "AI를 기능이 아니라 '협업 가능한 시스템'으로 본다."
+> "문제에 맞는 AI 시스템 아키텍처를 선택한다."
 >
 
-### 벤다이어그램 형태로 시각화:
+### 대비 다이어그램:
 
 ```
-     ┌────────────────┐           ┌────────────────┐
-     │     IYAGI      │           │  Kurz Studio   │
-     │                │           │                │
-     │  인간 ↔ AI     │───────────│   AI ↔ AI      │
-     │  서사 협업     │   공통점   │   역할 협업    │
-     │                │           │                │
-     │ • Story Graph  │           │ • Multi-Agent  │
-     │ • Affinity     │           │ • FSM          │
-     │ • Enrichment   │           │ • Orchestrator │
-     │ • Core Values  │           │ • Chord Pattern│
-     └────────────────┘           └────────────────┘
-              │                            │
-              └──────────┬─────────────────┘
-                         │
-                  공통 설계 원칙:
-         "협업 구조 설계가 핵심"
-         - Fan-Out Barrier 패턴
-         - State Machine 기반 제어
-         - LLM 출력 검증 + 재시도
+     ┌────────────────────────────┐           ┌────────────────────────────┐
+     │         IYAGI              │           │      Kurz AI Studio        │
+     │  (State-Aware Single)      │           │  (Multi-Agent Parallel)    │
+     ├────────────────────────────┤           ├────────────────────────────┤
+     │                            │           │                            │
+     │   User Input + GameState   │           │      User Prompt           │
+     │           ↓                │           │           ↓                │
+     │   ChapterGenerationMgr     │           │     Orchestrator           │
+     │           ↓                │           │           ↓                │
+     │   Gemini (단일 호출)       │           │   ┌───────┼───────┐        │
+     │   + State Context          │           │   ↓       ↓       ↓        │
+     │           ↓                │           │  Plot  Image   Audio       │
+     │   Scene 1 → 2 → ... → 6    │           │  Agent  Agent  Agent       │
+     │   (순차 누적 컨텍스트)      │           │   └───────┼───────┘        │
+     │           ↓                │           │           ↓                │
+     │   DialogueRecords          │           │      Director              │
+     │                            │           │           ↓                │
+     │                            │           │      final_video.mp4       │
+     └────────────────────────────┘           └────────────────────────────┘
 ```
 
-**공통점:**
+### 설계 비교
 
-- **IYAGI:** 인간과 AI의 서사 협업 (사용자 입력 → AI가 풍부화)
-- **Kurz:** AI Agent 간의 역할 협업 (기획자 → 디자이너/작곡가/성우 → 감독)
-- **핵심:** 단순 AI 호출이 아닌, "협업이 가능한 시스템 구조" 설계
+| 요소 | IYAGI | Kurz AI Studio |
+| --- | --- | --- |
+| **아키텍처** | State-Aware Single-Agent | Multi-Agent Orchestration |
+| **LLM 역할** | 상태 기반 컨텍스트 생성 | 역할별 전문화된 생성 |
+| **협업 방식** | 순차적 컨텍스트 누적 | 병렬 작업 + 동기화 |
+| **상태 관리** | GameState + Caching | FSM + Redis |
+| **확장성** | 프롬프트 엔지니어링으로 확장 | Agent 추가로 확장 |
+| **복잡도** | 낮음 (단일 워크플로우) | 높음 (상태 동기화 필수) |
+
+### 왜 다르게 설계했는가?
+
+**IYAGI가 Single-Agent를 선택한 이유:**
+- 스토리는 **순차적 흐름**이 중요 (씬 간 일관성)
+- Core Values/Affection 같은 **상태 정보**가 모든 대사에 영향
+- 멀티에이전트 도입 시 **불필요한 복잡성** 증가
+- 프롬프트 엔지니어링만으로 충분히 제어 가능
+
+**Kurz가 Multi-Agent를 선택한 이유:**
+- 이미지/음성/음악 생성은 **독립적 작업** (병렬 처리 가능)
+- 각 작업이 **전문화된 API** 필요 (Gemini Image, ElevenLabs TTS/Music)
+- 순차 처리 시 **시간 낭비** (3분 → 1분으로 단축)
+- Agent 간 명확한 **역할 분리** (기획자 → 디자이너 → 감독)
+
+### 공통 원칙
+
+두 프로젝트 모두:
+1. **LLM 출력 검증 + 재시도** (Plot Validation, JSON Repair)
+2. **병렬 처리 최적화** (IYAGI: Asset 생성, Kurz: Agent 작업)
+3. **상태 기반 제어** (IYAGI: GameState, Kurz: FSM)
+4. **실시간 피드백** (IYAGI: Coroutine, Kurz: WebSocket)
 
 ---
 

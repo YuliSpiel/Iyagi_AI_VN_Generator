@@ -754,13 +754,166 @@ Resolution: 1920×1080.";
         // ===== 캐시 키 생성 =====
 
         /// <summary>
-        /// 캐시 키 생성: {ProjectGuid}_Ch{ChapterNum}
-        /// Chapter-Level Convergence: Core Value 무시, 챕터 번호만 사용
+        /// Alternating Branching Strategy: 챕터별 교차 분기 캐시 키 생성
+        /// - Chapter 1: 공통 프롤로그
+        /// - 짝수 챕터 (2, 4, 6...): Core Value 기준 분기
+        /// - 홀수 챕터 (3, 5, 7...): NPC Affection 기준 분기
+        /// 최대 4개 Core Values, 3명 NPCs 지원
         /// </summary>
         private string GenerateCacheKey(int chapterId, GameStateSnapshot state)
         {
-            // ✅ 같은 챕터면 같은 캐시 사용 (Core Value 상태 무시)
-            return $"{projectData.projectGuid}_Ch{chapterId}";
+            string projectId = projectData.projectGuid;
+
+            // Chapter 1: 항상 동일 (프롤로그)
+            if (chapterId == 1)
+            {
+                return $"{projectId}_Ch1";
+            }
+
+            // 짝수 챕터: Core Value 기준 (2, 4, 6...)
+            if (chapterId % 2 == 0)
+            {
+                string coreRoute = GetDominantCoreValue(state);           // 예: "Courage"
+                string coreBucket = GetCoreValueBucket(state, coreRoute); // "LOW"/"MID"/"HIGH"
+                string flags = GetMajorFlagsHash(state);                  // "helped_Alice_lied_Bob"
+                return $"{projectId}_Ch{chapterId}_{coreRoute}_{coreBucket}_{flags}";
+            }
+
+            // 홀수 챕터: NPC Affection 기준 (3, 5, 7...)
+            else
+            {
+                string coreRoute = GetDominantCoreValue(state);           // 이전 경로 유지
+                string loveRoute = GetDominantNPC(state);                 // 예: "Alice"
+                string affBucket = GetAffectionBucket(state, loveRoute);  // "Alice_HIGH"/"Bob_HIGH"/"BALANCED"
+                string flags = GetMajorFlagsHash(state);
+                return $"{projectId}_Ch{chapterId}_{coreRoute}_{loveRoute}_{affBucket}_{flags}";
+            }
+        }
+
+        /// <summary>
+        /// Core Value 중 가장 높은 값 반환 (최대 4개 지원)
+        /// </summary>
+        private string GetDominantCoreValue(GameStateSnapshot state)
+        {
+            if (state == null || state.coreValueScores == null || state.coreValueScores.Count == 0)
+            {
+                return "None";
+            }
+
+            return state.coreValueScores
+                .OrderByDescending(kvp => kvp.Value)
+                .First().Key;
+        }
+
+        /// <summary>
+        /// NPC 중 가장 호감도 높은 캐릭터 반환 (최대 3명 지원)
+        /// </summary>
+        private string GetDominantNPC(GameStateSnapshot state)
+        {
+            if (state == null || state.characterAffections == null || state.characterAffections.Count == 0)
+            {
+                return "None";
+            }
+
+            return state.characterAffections
+                .OrderByDescending(kvp => kvp.Value)
+                .First().Key;
+        }
+
+        /// <summary>
+        /// 특정 Core Value를 LOW/MID/HIGH로 양자화
+        /// </summary>
+        private string GetCoreValueBucket(GameStateSnapshot state, string coreValueName)
+        {
+            if (state == null || state.coreValueScores == null || !state.coreValueScores.ContainsKey(coreValueName))
+            {
+                return "LOW";
+            }
+
+            int score = state.coreValueScores[coreValueName];
+
+            if (score < 30) return "LOW";
+            if (score < 70) return "MID";
+            return "HIGH";
+        }
+
+        /// <summary>
+        /// 특정 NPC의 호감도를 양자화 (HIGH/MID/LOW)
+        /// 또는 여러 NPC 간 균형 상태를 반환 (BALANCED)
+        /// </summary>
+        private string GetAffectionBucket(GameStateSnapshot state, string npcName)
+        {
+            if (state == null || state.characterAffections == null || state.characterAffections.Count == 0)
+            {
+                return "BALANCED";
+            }
+
+            // 최고 호감도 NPC와 2등 NPC 찾기
+            var sortedNPCs = state.characterAffections
+                .OrderByDescending(kvp => kvp.Value)
+                .ToList();
+
+            if (sortedNPCs.Count == 1)
+            {
+                // NPC가 1명만 있으면 그냥 점수 기준
+                int score = sortedNPCs[0].Value;
+                if (score < 30) return $"{sortedNPCs[0].Key}_LOW";
+                if (score < 70) return $"{sortedNPCs[0].Key}_MID";
+                return $"{sortedNPCs[0].Key}_HIGH";
+            }
+
+            // 1등과 2등 점수 차이
+            int topScore = sortedNPCs[0].Value;
+            int secondScore = sortedNPCs[1].Value;
+            int diff = topScore - secondScore;
+
+            // 차이가 20 미만이면 균형 상태
+            if (diff < 20)
+            {
+                return "BALANCED";
+            }
+
+            // 1등 NPC의 호감도 등급
+            string topNPC = sortedNPCs[0].Key;
+            if (topScore < 30) return $"{topNPC}_LOW";
+            if (topScore < 70) return $"{topNPC}_MID";
+            return $"{topNPC}_HIGH";
+        }
+
+        /// <summary>
+        /// 중요 플래그만 추출하여 해시 생성
+        /// </summary>
+        private string GetMajorFlagsHash(GameStateSnapshot state)
+        {
+            if (state == null || state.flags == null || state.flags.Count == 0)
+            {
+                return "none";
+            }
+
+            // 실제로 스토리에 영향을 주는 플래그만 필터링
+            var majorFlags = state.flags
+                .Where(kvp => kvp.Value && IsMajorFlag(kvp.Key)) // true인 플래그만
+                .Select(kvp => kvp.Key)
+                .OrderBy(f => f)
+                .ToList();
+
+            if (majorFlags.Count == 0)
+            {
+                return "none";
+            }
+
+            return string.Join("_", majorFlags);
+        }
+
+        /// <summary>
+        /// 플래그가 Major Flag인지 판단
+        /// (실제 스토리 분기에 영향을 주는 중요한 플래그만)
+        /// </summary>
+        private bool IsMajorFlag(string flag)
+        {
+            // 중요 플래그 접두어 (스토리에 실제 영향을 주는 것만)
+            string[] majorPrefixes = { "helped_", "lied_", "saved_", "failed_", "betrayed_", "romance_" };
+            return majorPrefixes.Any(prefix => flag.StartsWith(prefix));
         }
 
         // ===== 엔딩 씬 생성 =====
