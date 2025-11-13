@@ -48,9 +48,39 @@ public class SetupWizardUIFixes : EditorWindow
         }
 
         GUILayout.Space(5);
+
+        if (GUILayout.Button("3-1. Remove All Loading Popups"))
+        {
+            RemoveLoadingPopup("Step4_Panel");
+            RemoveLoadingPopup("Step5_Panel");
+        }
+
+        GUILayout.Space(5);
         EditorGUILayout.HelpBox(
             "각 Step 패널에 Loading Popup을 자동으로 생성하고\n" +
             "스크립트에 연결합니다.",
+            MessageType.Info
+        );
+
+        GUILayout.Space(20);
+
+        if (GUILayout.Button("4. Add Romanceable Toggle to Step5"))
+        {
+            AddRomanceableToggleToStep5();
+        }
+
+        GUILayout.Space(5);
+
+        if (GUILayout.Button("4-1. Remove Romanceable Toggle (Reset)"))
+        {
+            RemoveRomanceableToggleFromStep5();
+        }
+
+        GUILayout.Space(5);
+        EditorGUILayout.HelpBox(
+            "Step5 NPC 생성 패널에 isRomanceable 토글을 추가합니다.\n" +
+            "PersonalityInput 아래에 추가됩니다.\n" +
+            "제대로 안 보이면 Remove 후 다시 Add 하세요.",
             MessageType.Info
         );
 
@@ -61,6 +91,7 @@ public class SetupWizardUIFixes : EditorWindow
             FixStep5ButtonPositions();
             AddLoadingPopupToStep("Step4Panel");
             AddLoadingPopupToStep("Step5Panel");
+            AddRomanceableToggleToStep5();
             Debug.Log("✅ All Setup Wizard UI fixes applied!");
         }
     }
@@ -76,12 +107,12 @@ public class SetupWizardUIFixes : EditorWindow
         }
 
         // Step4와 Step5의 버튼 찾기
-        GameObject step4Panel = GameObject.Find("Step4Panel");
-        GameObject step5Panel = GameObject.Find("Step5Panel");
+        GameObject step4Panel = GameObject.Find("Step4_Panel");
+        GameObject step5Panel = GameObject.Find("Step5_Panel");
 
         if (step4Panel == null || step5Panel == null)
         {
-            Debug.LogError("Could not find Step4Panel or Step5Panel in scene!");
+            Debug.LogError("Could not find Step4_Panel or Step5_Panel in scene!");
             return;
         }
 
@@ -134,8 +165,14 @@ public class SetupWizardUIFixes : EditorWindow
 
     static void AddLoadingPopupToStep(string stepPanelName)
     {
-        // 현재 씬에서 Step 패널 찾기
+        // 현재 씬에서 Step 패널 찾기 (언더스코어 버전도 시도)
         GameObject stepPanel = GameObject.Find(stepPanelName);
+        if (stepPanel == null)
+        {
+            // 언더스코어 없는 이름으로 시도했다면 언더스코어 버전 시도
+            stepPanel = GameObject.Find(stepPanelName.Replace("Panel", "_Panel"));
+        }
+
         if (stepPanel == null)
         {
             Debug.LogError($"Could not find {stepPanelName} in scene!");
@@ -218,6 +255,220 @@ public class SetupWizardUIFixes : EditorWindow
 
         EditorUtility.SetDirty(loadingPopup);
         Debug.Log($"✅ Loading Popup added to {stepPanelName}!");
+    }
+
+    static void AddRomanceableToggleToStep5()
+    {
+        // SetupWizardScene 열기
+        var scene = SceneManager.GetActiveScene();
+        if (scene.name != "SetupWizardScene")
+        {
+            Debug.LogError("Please open SetupWizardScene first!");
+            return;
+        }
+
+        // Step5Panel 찾기
+        GameObject step5Panel = GameObject.Find("Step5_Panel");
+        if (step5Panel == null)
+        {
+            Debug.LogError("Could not find Step5_Panel in scene!");
+            return;
+        }
+
+        // 기존 RomanceableToggle이 있는지 확인
+        Transform existingToggle = step5Panel.transform.Find("RomanceableToggle");
+        if (existingToggle != null)
+        {
+            Debug.Log("RomanceableToggle already exists in Step5Panel. Skipping.");
+            return;
+        }
+
+        // PersonalityInput 찾기 (이 아래에 토글을 추가할 것)
+        TMPro.TMP_InputField personalityInput = null;
+        Transform personalityTransform = null;
+
+        TMPro.TMP_InputField[] inputFields = step5Panel.GetComponentsInChildren<TMPro.TMP_InputField>(true);
+        foreach (var field in inputFields)
+        {
+            if (field.gameObject.name.Contains("Personality"))
+            {
+                personalityInput = field;
+                personalityTransform = field.transform;
+                break;
+            }
+        }
+
+        if (personalityInput == null)
+        {
+            Debug.LogError("Could not find PersonalityInput in Step5Panel!");
+            return;
+        }
+
+        Debug.Log($"Found PersonalityInput: {personalityTransform.name}, Parent: {personalityTransform.parent.name}");
+
+        // PersonalityInput의 부모 찾기 (InputsContainer 등)
+        Transform container = personalityTransform.parent;
+
+        // RomanceableToggle 생성
+        GameObject toggleObj = new GameObject("RomanceableToggle");
+        toggleObj.transform.SetParent(container, false);
+
+        // PersonalityInput 다음으로 배치
+        int personalityIndex = personalityTransform.GetSiblingIndex();
+        toggleObj.transform.SetSiblingIndex(personalityIndex + 1);
+
+        // RectTransform 설정 - 절대 위치 대신 LayoutElement 사용
+        RectTransform toggleRect = toggleObj.AddComponent<RectTransform>();
+
+        // 고정 크기 설정
+        toggleRect.anchorMin = new Vector2(0, 1);
+        toggleRect.anchorMax = new Vector2(1, 1);
+        toggleRect.pivot = new Vector2(0.5f, 1);
+        toggleRect.anchoredPosition = Vector2.zero;
+        toggleRect.sizeDelta = new Vector2(0, 40); // 높이 40
+
+        // LayoutElement 추가 (부모가 VerticalLayoutGroup일 경우를 대비)
+        var layoutElement = toggleObj.AddComponent<UnityEngine.UI.LayoutElement>();
+        layoutElement.minHeight = 40;
+        layoutElement.preferredHeight = 40;
+
+        // Toggle 컴포넌트 추가
+        Toggle toggle = toggleObj.AddComponent<Toggle>();
+        toggle.isOn = false;
+
+        // Background (체크박스 배경)
+        GameObject background = new GameObject("Background");
+        background.transform.SetParent(toggleObj.transform, false);
+
+        RectTransform bgRect = background.AddComponent<RectTransform>();
+        bgRect.anchorMin = new Vector2(0, 0.5f);
+        bgRect.anchorMax = new Vector2(0, 0.5f);
+        bgRect.anchoredPosition = new Vector2(15, 0);
+        bgRect.sizeDelta = new Vector2(20, 20);
+
+        Image bgImage = background.AddComponent<Image>();
+        bgImage.color = Color.white;
+
+        // Checkmark
+        GameObject checkmark = new GameObject("Checkmark");
+        checkmark.transform.SetParent(background.transform, false);
+
+        RectTransform checkRect = checkmark.AddComponent<RectTransform>();
+        checkRect.anchorMin = Vector2.zero;
+        checkRect.anchorMax = Vector2.one;
+        checkRect.offsetMin = Vector2.zero;
+        checkRect.offsetMax = Vector2.zero;
+
+        Image checkImage = checkmark.AddComponent<Image>();
+        checkImage.color = new Color(0.2f, 0.6f, 1f); // 파란색 체크
+
+        // Label
+        GameObject label = new GameObject("Label");
+        label.transform.SetParent(toggleObj.transform, false);
+
+        RectTransform labelRect = label.AddComponent<RectTransform>();
+        labelRect.anchorMin = new Vector2(0, 0);
+        labelRect.anchorMax = new Vector2(1, 1);
+        labelRect.anchoredPosition = new Vector2(20, 0);
+        labelRect.offsetMin = new Vector2(40, 0);
+        labelRect.offsetMax = new Vector2(0, 0);
+
+        TMPro.TMP_Text labelText = label.AddComponent<TMPro.TMP_Text>();
+        labelText.text = "연애 가능 NPC (Romanceable)";
+        labelText.fontSize = 18;
+        labelText.color = Color.white;
+        labelText.alignment = TMPro.TextAlignmentOptions.Left;
+        labelText.font = Resources.Load<TMPro.TMP_FontAsset>("TextMesh Pro/Fonts/NotoSansKR");
+
+        // Toggle 컴포넌트 설정
+        toggle.targetGraphic = bgImage;
+        toggle.graphic = checkImage;
+
+        // Step5_NPCs 스크립트에 연결
+        var step5Script = step5Panel.GetComponent<IyagiAI.SetupWizard.Step5_NPCs>();
+        if (step5Script != null)
+        {
+            Undo.RecordObject(step5Script, "Add Romanceable Toggle");
+            step5Script.romanceableToggle = toggle;
+            EditorUtility.SetDirty(step5Script);
+        }
+
+        EditorUtility.SetDirty(toggleObj);
+        Debug.Log("✅ Romanceable Toggle added to Step5Panel!");
+    }
+
+    static void RemoveLoadingPopup(string stepPanelName)
+    {
+        var scene = SceneManager.GetActiveScene();
+        if (scene.name != "SetupWizardScene")
+        {
+            Debug.LogError("Please open SetupWizardScene first!");
+            return;
+        }
+
+        GameObject stepPanel = GameObject.Find(stepPanelName);
+        if (stepPanel == null)
+        {
+            Debug.LogWarning($"Could not find {stepPanelName} in scene!");
+            return;
+        }
+
+        // LoadingPopup 찾아서 삭제
+        Transform[] allChildren = stepPanel.GetComponentsInChildren<Transform>(true);
+        foreach (var child in allChildren)
+        {
+            if (child.name == "LoadingPopup")
+            {
+                Undo.DestroyObjectImmediate(child.gameObject);
+                Debug.Log($"✅ LoadingPopup removed from {stepPanelName}!");
+                return;
+            }
+        }
+
+        Debug.LogWarning($"LoadingPopup not found in {stepPanelName}.");
+    }
+
+    static void RemoveRomanceableToggleFromStep5()
+    {
+        var scene = SceneManager.GetActiveScene();
+        if (scene.name != "SetupWizardScene")
+        {
+            Debug.LogError("Please open SetupWizardScene first!");
+            return;
+        }
+
+        GameObject step5Panel = GameObject.Find("Step5_Panel");
+        if (step5Panel == null)
+        {
+            Debug.LogError("Could not find Step5_Panel in scene!");
+            return;
+        }
+
+        // 기존 RomanceableToggle 찾아서 삭제
+        Transform existingToggle = step5Panel.transform.Find("RomanceableToggle");
+        if (existingToggle == null)
+        {
+            // 모든 자식에서 재귀적으로 찾기
+            Transform[] allChildren = step5Panel.GetComponentsInChildren<Transform>(true);
+            foreach (var child in allChildren)
+            {
+                if (child.name == "RomanceableToggle")
+                {
+                    existingToggle = child;
+                    break;
+                }
+            }
+        }
+
+        if (existingToggle != null)
+        {
+            Undo.DestroyObjectImmediate(existingToggle.gameObject);
+            Debug.Log("✅ RomanceableToggle removed from Step5Panel!");
+        }
+        else
+        {
+            Debug.LogWarning("RomanceableToggle not found in Step5Panel.");
+        }
     }
 
     static Button FindButtonInChildren(GameObject parent, string buttonName)
