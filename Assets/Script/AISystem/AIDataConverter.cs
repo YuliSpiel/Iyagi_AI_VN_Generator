@@ -142,12 +142,21 @@ namespace IyagiAI.AISystem
                                 }
                             }
 
-                            // Affection Impact 처리 (새로 추가)
+                            // Affection Impact 처리
                             if (line.choices[c].affection_impact != null)
                             {
                                 foreach (var affectionImpact in line.choices[c].affection_impact)
                                 {
                                     record.Fields[$"Choice{choiceNum}_AffectionImpact_{affectionImpact.character_name}"] = affectionImpact.change.ToString();
+                                }
+                            }
+
+                            // Flag Impact 처리 (Major Choice 플래그)
+                            if (line.choices[c].flag_impact != null)
+                            {
+                                foreach (var flagImpact in line.choices[c].flag_impact)
+                                {
+                                    record.Fields[$"Choice{choiceNum}_FlagImpact_{flagImpact.flag_name}"] = flagImpact.value.ToString();
                                 }
                             }
                         }
@@ -298,7 +307,8 @@ namespace IyagiAI.AISystem
             public int next_id;
             public ValueImpact[] value_impact;
             public SkillImpact[] skill_impact; // 파생 스킬 임팩트
-            public AffectionImpact[] affection_impact; // 친밀도 임팩트 (새로 추가)
+            public AffectionImpact[] affection_impact; // 친밀도 임팩트
+            public FlagImpact[] flag_impact; // Major Choice 플래그
         }
 
         [System.Serializable]
@@ -320,6 +330,13 @@ namespace IyagiAI.AISystem
         {
             public string character_name; // 예: "Hans", "Heilner"
             public int change; // 예: +10 또는 -5
+        }
+
+        [System.Serializable]
+        public class FlagImpact
+        {
+            public string flag_name; // 예: "betrayed_Ellen", "saved_village"
+            public bool value; // true = 플래그 설정, false = 플래그 제거
         }
     }
 }

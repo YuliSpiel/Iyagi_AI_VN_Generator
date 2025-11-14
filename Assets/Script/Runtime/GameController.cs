@@ -463,6 +463,33 @@ namespace IyagiAI.Runtime
                 }
             }
 
+            // Flag Impact 처리 (Major Choice 플래그)
+            // AIDataConverter가 FlagImpact_flagName 키로 저장
+            // 값이 "true"면 플래그 설정, "false"면 플래그 제거
+            var allKeys = currentLine.Fields.Keys.ToList();
+            foreach (var key in allKeys)
+            {
+                if (key.StartsWith($"Choice{choiceIndex + 1}_FlagImpact_"))
+                {
+                    string flagName = key.Substring($"Choice{choiceIndex + 1}_FlagImpact_".Length);
+                    string flagValueStr = currentLine.GetString(key);
+
+                    if (bool.TryParse(flagValueStr, out bool flagValue))
+                    {
+                        if (flagValue)
+                        {
+                            currentState.flags[flagName] = true;
+                            Debug.Log($"[MajorFlag] '{flagName}' set to TRUE");
+                        }
+                        else
+                        {
+                            currentState.flags[flagName] = false;
+                            Debug.Log($"[MajorFlag] '{flagName}' set to FALSE");
+                        }
+                    }
+                }
+            }
+
             // Next ID로 이동
             string nextIdKey = $"Next{choiceIndex + 1}";
             if (currentLine.TryGetInt(nextIdKey, out int nextId))

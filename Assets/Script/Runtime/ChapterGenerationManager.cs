@@ -422,6 +422,12 @@ Output ONLY a JSON array of 10 dialogue lines.
             ""character_name"": ""CharacterName"",
             ""change"": 10
           }}
+        ],
+        ""flag_impact"": [
+          {{
+            ""flag_name"": ""betrayed_CharacterName"",
+            ""value"": true
+          }}
         ]
       }},
       {{
@@ -437,6 +443,12 @@ Output ONLY a JSON array of 10 dialogue lines.
           {{
             ""character_name"": ""CharacterName"",
             ""change"": 10
+          }}
+        ],
+        ""flag_impact"": [
+          {{
+            ""flag_name"": ""saved_CharacterName"",
+            ""value"": true
           }}
         ]
       }}
@@ -481,6 +493,45 @@ CRITICAL - Choice Impact Rules:
 - Use skill names EXACTLY as listed in the Core Values section above
 - With 3 chapters × 3 choices × 12 average points = 108 total points possible per skill
 - This ensures diverse endings without extreme polarization!
+
+CRITICAL - Major Choice Flag System:
+**Purpose**: Choices that fundamentally change the story should set Major Flags.
+- Major Flags cause future chapters to branch into different versions
+- Use SPARINGLY (0-1 per chapter) to avoid exponential branching explosion
+
+**When to use Major Flags**:
+- ✅ Betraying a key character (""betrayed_Ellen"")
+- ✅ Choosing a romance route (""romance_Alice"")
+- ✅ Major plot decision (""saved_village"", ""revealed_secret"")
+- ❌ Minor choices that only affect stats/affection (no flag needed)
+
+**Major Flag Prefixes** (use these ONLY):
+- ""betrayed_"" - betraying a character (e.g., ""betrayed_Ellen"")
+- ""saved_"" - saving/protecting someone/something
+- ""killed_"" - killing a character
+- ""romance_"" - entering a romance route with a character
+- ""allied_"" - forming an alliance
+- ""rejected_"" - rejecting a key offer/character
+- ""revealed_"" - revealing a major secret
+- ""sacrificed_"" - sacrificing something important
+
+**Example - Major Choice**:
+{{
+  ""text"": ""Betray Ellen to save yourself"",
+  ""skill_impact"": [{{""skill_name"": ""Survival"", ""change"": 15}}],
+  ""affection_impact"": [{{""character_name"": ""Ellen"", ""change"": -30}}],
+  ""flag_impact"": [{{""flag_name"": ""betrayed_Ellen"", ""value"": true}}]
+}}
+
+**Example - Normal Choice** (no flag):
+{{
+  ""text"": ""Help Ellen with her task"",
+  ""skill_impact"": [{{""skill_name"": ""Empathy"", ""change"": 12}}],
+  ""affection_impact"": [{{""character_name"": ""Ellen"", ""change"": 10}}]
+  // No flag_impact - this is just a stat-affecting choice
+}}
+
+**IMPORTANT**: Most choices should NOT have flag_impact. Only 0-1 choices per chapter should set Major Flags!
 
 EXAMPLE - Affection-Based Story Variation:
 
@@ -780,11 +831,18 @@ Resolution: 1920×1080.";
         // ===== 캐시 키 생성 =====
 
         /// <summary>
-        /// Alternating Branching Strategy: 챕터별 교차 분기 캐시 키 생성
-        /// - Chapter 1: 공통 프롤로그
-        /// - 짝수 챕터 (2, 4, 6...): Core Value 기준 분기
-        /// - 홀수 챕터 (3, 5, 7...): NPC Affection 기준 분기
-        /// 최대 4개 Core Values, 3명 NPCs 지원
+        /// Major-Choice-Driven Branching Strategy: 주요 선택에 의한 이벤트 기반 분기
+        ///
+        /// 설계 원칙:
+        /// 1. 기본 스토리는 모든 플레이어에게 동일
+        /// 2. 주요 선택(Major Choice) 시에만 분기 발생
+        /// 3. 정량적 비교(점수) 대신 정성적 이벤트(플래그) 사용
+        /// 4. 분기 수 제한: 각 챕터당 0-2개 주요 선택 → 지수 증가 방지
+        ///
+        /// 예시:
+        /// - Chapter 2에서 "betrayed_Ellen" 선택 → Chapter 3는 배신 이후 버전 생성
+        /// - Chapter 3에서 추가 분기 없음 → 배신/비배신 경로만 유지
+        /// - 최대 분기: 2^주요선택수 (예: 6챕터 × 1선택 = 6개 루트)
         /// </summary>
         private string GenerateCacheKey(int chapterId, GameStateSnapshot state)
         {
@@ -796,28 +854,80 @@ Resolution: 1920×1080.";
                 return $"{projectId}_Ch1";
             }
 
-            // 짝수 챕터: Core Value 기준 (2, 4, 6...)
-            if (chapterId % 2 == 0)
+            // 주요 선택 플래그 추출 (스토리 분기에 영향을 주는 것만)
+            string majorFlags = GetMajorFlagsForBranching(state);
+
+            // 플래그가 없으면 기본 경로
+            if (majorFlags == "none")
             {
-                string coreRoute = GetDominantCoreValue(state);           // 예: "Courage"
-                string coreBucket = GetCoreValueBucket(state, coreRoute); // "LOW"/"MID"/"HIGH"
-                string flags = GetMajorFlagsHash(state);                  // "helped_Alice_lied_Bob"
-                return $"{projectId}_Ch{chapterId}_{coreRoute}_{coreBucket}_{flags}";
+                return $"{projectId}_Ch{chapterId}";
             }
 
-            // 홀수 챕터: NPC Affection 기준 (3, 5, 7...)
-            else
-            {
-                string coreRoute = GetDominantCoreValue(state);           // 이전 경로 유지
-                string loveRoute = GetDominantNPC(state);                 // 예: "Alice"
-                string affBucket = GetAffectionBucket(state, loveRoute);  // "Alice_HIGH"/"Bob_HIGH"/"BALANCED"
-                string flags = GetMajorFlagsHash(state);
-                return $"{projectId}_Ch{chapterId}_{coreRoute}_{loveRoute}_{affBucket}_{flags}";
-            }
+            // 플래그가 있으면 분기 경로
+            return $"{projectId}_Ch{chapterId}_{majorFlags}";
         }
 
         /// <summary>
-        /// Core Value 중 가장 높은 값 반환 (최대 4개 지원)
+        /// 스토리 분기에 실제로 영향을 주는 Major Flag만 추출
+        /// </summary>
+        private string GetMajorFlagsForBranching(GameStateSnapshot state)
+        {
+            if (state == null || state.flags == null || state.flags.Count == 0)
+            {
+                return "none";
+            }
+
+            // true인 Major Flag만 필터링
+            var majorFlags = state.flags
+                .Where(kvp => kvp.Value && IsMajorFlag(kvp.Key))
+                .Select(kvp => kvp.Key)
+                .OrderBy(f => f) // 정렬로 안정적인 캐시 키 생성
+                .ToList();
+
+            if (majorFlags.Count == 0)
+            {
+                return "none";
+            }
+
+            // 최대 5개까지만 (너무 많으면 캐시 키 폭발)
+            if (majorFlags.Count > 5)
+            {
+                Debug.LogWarning($"[ChapterGenerationManager] Too many major flags ({majorFlags.Count}), using first 5");
+                majorFlags = majorFlags.Take(5).ToList();
+            }
+
+            return string.Join("_", majorFlags);
+        }
+
+        /// <summary>
+        /// 플래그가 Major Flag인지 판단
+        /// Major Flag = 스토리 흐름을 크게 바꾸는 중요한 이벤트
+        ///
+        /// 예시:
+        /// - ✅ "betrayed_Ellen" - 엘런을 배신함 (스토리 크게 변화)
+        /// - ✅ "saved_village" - 마을을 구함 (엔딩에 영향)
+        /// - ❌ "talked_to_merchant" - 상인과 대화함 (단순 플래그)
+        /// </summary>
+        private bool IsMajorFlag(string flag)
+        {
+            // Major Flag 접두어 정의
+            // 스토리 분기를 일으키는 중요한 선택만 포함
+            string[] majorPrefixes = {
+                "betrayed_",    // 배신
+                "saved_",       // 구출/보호
+                "killed_",      // 살해
+                "romance_",     // 로맨스 루트 진입
+                "allied_",      // 동맹 체결
+                "rejected_",    // 거절/결별
+                "revealed_",    // 비밀 폭로
+                "sacrificed_"   // 희생
+            };
+
+            return majorPrefixes.Any(prefix => flag.StartsWith(prefix));
+        }
+
+        /// <summary>
+        /// Core Value 중 가장 높은 값 반환 (엔딩 결정용)
         /// </summary>
         private string GetDominantCoreValue(GameStateSnapshot state)
         {
@@ -829,117 +939,6 @@ Resolution: 1920×1080.";
             return state.coreValueScores
                 .OrderByDescending(kvp => kvp.Value)
                 .First().Key;
-        }
-
-        /// <summary>
-        /// NPC 중 가장 호감도 높은 캐릭터 반환 (최대 3명 지원)
-        /// </summary>
-        private string GetDominantNPC(GameStateSnapshot state)
-        {
-            if (state == null || state.characterAffections == null || state.characterAffections.Count == 0)
-            {
-                return "None";
-            }
-
-            return state.characterAffections
-                .OrderByDescending(kvp => kvp.Value)
-                .First().Key;
-        }
-
-        /// <summary>
-        /// 특정 Core Value를 LOW/MID/HIGH로 양자화
-        /// </summary>
-        private string GetCoreValueBucket(GameStateSnapshot state, string coreValueName)
-        {
-            if (state == null || state.coreValueScores == null || !state.coreValueScores.ContainsKey(coreValueName))
-            {
-                return "LOW";
-            }
-
-            int score = state.coreValueScores[coreValueName];
-
-            if (score < 30) return "LOW";
-            if (score < 70) return "MID";
-            return "HIGH";
-        }
-
-        /// <summary>
-        /// 특정 NPC의 호감도를 양자화 (HIGH/MID/LOW)
-        /// 또는 여러 NPC 간 균형 상태를 반환 (BALANCED)
-        /// </summary>
-        private string GetAffectionBucket(GameStateSnapshot state, string npcName)
-        {
-            if (state == null || state.characterAffections == null || state.characterAffections.Count == 0)
-            {
-                return "BALANCED";
-            }
-
-            // 최고 호감도 NPC와 2등 NPC 찾기
-            var sortedNPCs = state.characterAffections
-                .OrderByDescending(kvp => kvp.Value)
-                .ToList();
-
-            if (sortedNPCs.Count == 1)
-            {
-                // NPC가 1명만 있으면 그냥 점수 기준
-                int score = sortedNPCs[0].Value;
-                if (score < 30) return $"{sortedNPCs[0].Key}_LOW";
-                if (score < 70) return $"{sortedNPCs[0].Key}_MID";
-                return $"{sortedNPCs[0].Key}_HIGH";
-            }
-
-            // 1등과 2등 점수 차이
-            int topScore = sortedNPCs[0].Value;
-            int secondScore = sortedNPCs[1].Value;
-            int diff = topScore - secondScore;
-
-            // 차이가 20 미만이면 균형 상태
-            if (diff < 20)
-            {
-                return "BALANCED";
-            }
-
-            // 1등 NPC의 호감도 등급
-            string topNPC = sortedNPCs[0].Key;
-            if (topScore < 30) return $"{topNPC}_LOW";
-            if (topScore < 70) return $"{topNPC}_MID";
-            return $"{topNPC}_HIGH";
-        }
-
-        /// <summary>
-        /// 중요 플래그만 추출하여 해시 생성
-        /// </summary>
-        private string GetMajorFlagsHash(GameStateSnapshot state)
-        {
-            if (state == null || state.flags == null || state.flags.Count == 0)
-            {
-                return "none";
-            }
-
-            // 실제로 스토리에 영향을 주는 플래그만 필터링
-            var majorFlags = state.flags
-                .Where(kvp => kvp.Value && IsMajorFlag(kvp.Key)) // true인 플래그만
-                .Select(kvp => kvp.Key)
-                .OrderBy(f => f)
-                .ToList();
-
-            if (majorFlags.Count == 0)
-            {
-                return "none";
-            }
-
-            return string.Join("_", majorFlags);
-        }
-
-        /// <summary>
-        /// 플래그가 Major Flag인지 판단
-        /// (실제 스토리 분기에 영향을 주는 중요한 플래그만)
-        /// </summary>
-        private bool IsMajorFlag(string flag)
-        {
-            // 중요 플래그 접두어 (스토리에 실제 영향을 주는 것만)
-            string[] majorPrefixes = { "helped_", "lied_", "saved_", "failed_", "betrayed_", "romance_" };
-            return majorPrefixes.Any(prefix => flag.StartsWith(prefix));
         }
 
         // ===== 엔딩 씬 생성 =====

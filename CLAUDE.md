@@ -123,6 +123,13 @@ Iyagi AI VN Generator는 최소한의 입력(제목 + 줄거리)만으로 완전
 - LLM 챕터 생성 시 각 캐릭터의 말투 예시를 프롬프트에 포함
 - 캐릭터별 일관된 말투 유지
 
+### Major-Choice-Driven Branching (2025-01-14)
+- 기존 Alternating Branching을 Major-Choice-Driven Branching으로 전면 교체
+- 이벤트 기반 분기로 몰입감 유지 (정량적 점수 비교 → 정성적 플래그)
+- 분기 수 감소: 32개 → 10-20개 (6챕터 기준)
+- FlagImpact 데이터 구조 추가 (AIDataConverter, GameController)
+- 자세한 내용은 [BRANCHING_SOLUTION.md](BRANCHING_SOLUTION.md) 참조
+
 자세한 내용은 [systemdocs/implementation-history.md](systemdocs/implementation-history.md)를 참조하세요.
 
 ---
@@ -208,200 +215,189 @@ void DisplayChoices(DialogueRecord record) {
 
 ---
 
-## 🎯 Alternating Branching Strategy (교차 분기 시스템)
+## 🎯 Major-Choice-Driven Branching (주요 선택 기반 분기 시스템)
 
 ### 설계 목표
 
-**문제**: 모든 기준(Core Value + NPC Affection)을 동시 적용 시 분기 폭발
-- Core Values 2개 × NPCs 2명 = 4개 조합
-- 6챕터 기준: 4⁵ = **1,024개 루트** (관리 불가능)
+**문제 1 - 완전 수렴**: 모든 챕터가 동일하면 몰입감 파괴
+- Chapter 2에서 "엘런 배신" 선택 → Chapter 3에서 엘런이 친근하게 대함
+- ❌ 플레이어가 이질감 느낌
 
-**해결**: 챕터별 단일 기준 교차 분기
-- 짝수 챕터: Core Value 기준 분기
-- 홀수 챕터: NPC Affection 기준 분기
-- 6챕터 기준: 2⁵ = **32개 루트** (97% 감소)
+**문제 2 - 교차 분기**: 정량적 점수 기준은 의미 없음
+- 용기 49 vs 50의 차이는 플레이어가 인지 불가
+- 6챕터 기준: 32개 루트 (여전히 많음)
+
+**해결 - 주요 선택 분기**: 이벤트 기반, 제한적 분기
+- **기본 스토리는 모든 플레이어에게 동일**
+- **주요 선택(Major Choice) 시에만 분기** (챕터당 0-1개)
+- 정량적 점수 대신 정성적 이벤트 플래그 사용
+- 6챕터 기준: **10-20개 루트** (실용적)
 
 ### 분기 구조
 
 ```
 Chapter 1: 공통 프롤로그 (1개)
-Chapter 2: Core Value 분기 (A, B) → 2개
-Chapter 3: NPC Affection 분기 (X, Y) → 4개 (AX, AY, BX, BY)
-Chapter 4: Core Value 재분기 → 8개
-Chapter 5: NPC Affection 재분기 → 16개
-Chapter 6: Core Value 확정 → 32개
-Ending: 4개 엔딩 (AX, AY, BX, BY)
+    ↓
+Chapter 2:
+┌─────────────────┴─────────────────┐
+일반 선택              주요 선택 (배신)
+(통계만 변경)           "betrayed_Ellen"
+    ↓                       ↓
+Chapter 3:            Chapter 3 (배신 후):
+엘런 친밀                엘런 냉랭, 적대적
+    ↓                       ↓
+Chapter 4: 수렴 가능      Chapter 4: 배신 유지
+    ↓                       ↓
+         └──────┬───────────┘
+               ↓
+        Chapter 5...
+
+최종 분기 수: 10-20개 (주요 선택 조합)
 ```
-
-### Chapter State Key 구조
-
-```csharp
-chapter_state_key = (
-    chapter_index,      // 챕터 번호
-    core_route,         // "A" or "B" (코어 밸류 축)
-    love_route,         // "X" or "Y" or "None" (NPC 공략 축)
-    core_bucket,        // "LOW" / "MID" / "HIGH" (점수 양자화)
-    affinity_bucket,    // "X_HIGH" / "Y_HIGH" / "BALANCED"
-    major_flags         // ["helped_X", "lied_to_Y", ...] (중요 플래그만)
-)
-```
-
-**핵심 원칙**: 같은 state_key → 같은 챕터 내용 (Deterministic)
 
 ### 캐시 키 생성 로직
 
+**핵심**: 주요 플래그만 캐시 키에 포함
+
 ```csharp
-private string GenerateCacheKey(int chapterId, GameStateSnapshot state) {
+// ChapterGenerationManager.cs
+private string GenerateCacheKey(int chapterId, GameStateSnapshot state)
+{
     string projectId = projectData.projectGuid;
 
     // Chapter 1: 항상 동일 (프롤로그)
-    if (chapterId == 1) {
-        return $"{projectId}_Ch1";
-    }
+    if (chapterId == 1) return $"{projectId}_Ch1";
 
-    // 짝수 챕터: Core Value 기준 (2, 4, 6...)
-    if (chapterId % 2 == 0) {
-        string coreRoute = GetDominantCoreValue(state);           // "A" or "B"
-        string coreBucket = GetCoreValueBucket(state);            // "LOW"/"MID"/"HIGH"
-        string flags = GetMajorFlagsHash(state);                  // "helped_X_lied_Y"
-        return $"{projectId}_Ch{chapterId}_{coreRoute}_{coreBucket}_{flags}";
-    }
+    // 주요 선택 플래그만 추출
+    string majorFlags = GetMajorFlagsForBranching(state);
 
-    // 홀수 챕터: NPC Affection 기준 (3, 5, 7...)
-    else {
-        string coreRoute = GetDominantCoreValue(state);           // 이전 경로 유지
-        string loveRoute = GetDominantNPC(state);                 // "X" or "Y"
-        string affBucket = GetAffectionBucket(state);             // "X_HIGH"/"Y_HIGH"/"BALANCED"
-        string flags = GetMajorFlagsHash(state);
-        return $"{projectId}_Ch{chapterId}_{coreRoute}_{loveRoute}_{affBucket}_{flags}";
-    }
+    // 플래그가 없으면 기본 경로
+    if (majorFlags == "none")
+        return $"{projectId}_Ch{chapterId}";
+
+    // 플래그가 있으면 분기 경로
+    return $"{projectId}_Ch{chapterId}_{majorFlags}";
 }
 
-// Core Value 중 가장 높은 값 반환
-private string GetDominantCoreValue(GameStateSnapshot state) {
-    return state.coreValueScores
-        .OrderByDescending(kvp => kvp.Value)
-        .First().Key;
-}
+// 주요 플래그만 추출
+private string GetMajorFlagsForBranching(GameStateSnapshot state)
+{
+    if (state == null || state.flags == null) return "none";
 
-// NPC 중 가장 호감도 높은 캐릭터 반환
-private string GetDominantNPC(GameStateSnapshot state) {
-    return state.characterAffections
-        .OrderByDescending(kvp => kvp.Value)
-        .First().Key;
-}
-
-// Core Value를 LOW/MID/HIGH로 양자화
-private string GetCoreValueBucket(GameStateSnapshot state) {
-    int score = state.coreValueScores.Values.Max();
-    if (score < 30) return "LOW";
-    if (score < 70) return "MID";
-    return "HIGH";
-}
-
-// Affection을 X_HIGH/Y_HIGH/BALANCED로 양자화
-private string GetAffectionBucket(GameStateSnapshot state) {
-    var affs = state.characterAffections;
-    if (!affs.ContainsKey("X") || !affs.ContainsKey("Y")) return "BALANCED";
-
-    int x = affs["X"];
-    int y = affs["Y"];
-    int diff = Math.Abs(x - y);
-
-    if (diff < 20) return "BALANCED";
-    return x > y ? "X_HIGH" : "Y_HIGH";
-}
-
-// 중요 플래그만 추출하여 해시 생성
-private string GetMajorFlagsHash(GameStateSnapshot state) {
-    // 실제로 스토리에 영향을 주는 플래그만 필터링
     var majorFlags = state.flags
-        .Where(f => IsMajorFlag(f))
-        .OrderBy(f => f)
+        .Where(kvp => kvp.Value && IsMajorFlag(kvp.Key))
+        .Select(kvp => kvp.Key)
+        .OrderBy(f => f)  // 안정적인 캐시 키
+        .Take(5)          // 최대 5개 (폭발 방지)
         .ToList();
 
-    return string.Join("_", majorFlags);
+    return majorFlags.Count == 0 ? "none" : string.Join("_", majorFlags);
 }
 
-private bool IsMajorFlag(string flag) {
-    // 예: "helped_X", "lied_to_Y", "failed_performance" 등
-    string[] majorPrefixes = { "helped_", "lied_", "saved_", "failed_", "betrayed_" };
+// Major Flag 판별
+private bool IsMajorFlag(string flag)
+{
+    string[] majorPrefixes = {
+        "betrayed_",    // 배신
+        "saved_",       // 구출/보호
+        "killed_",      // 살해
+        "romance_",     // 로맨스 루트
+        "allied_",      // 동맹
+        "rejected_",    // 거절/결별
+        "revealed_",    // 비밀 폭로
+        "sacrificed_"   // 희생
+    };
     return majorPrefixes.Any(prefix => flag.StartsWith(prefix));
 }
 ```
 
-### LLM 프롬프트 구조
+### LLM 프롬프트 - Major Choice 생성 지침
 
-#### 입력 (System → LLM)
+**프롬프트 예시**:
+```
+**CRITICAL - Major Choice Flag System**:
+- Use SPARINGLY (0-1 per chapter) to avoid branching explosion
+- Major Flags cause future chapters to branch
 
-```json
+**When to use Major Flags**:
+✅ Betraying a key character ("betrayed_Ellen")
+✅ Entering romance route ("romance_Alice")
+✅ Major plot decision ("saved_village")
+❌ Minor stat-affecting choices (no flag needed)
+
+**Example - Major Choice**:
 {
-  "chapter_index": 3,
-  "core_route": "A",
-  "love_route": null,
-  "core_score": 72,
-  "affinity_x": 55,
-  "affinity_y": 18,
-  "core_bucket": "HIGH",
-  "affinity_bucket": "X_HIGH",
-  "major_flags": ["helped_X"],
-  "previous_summary": "이전까지 일어난 사건 요약"
+  "text": "Betray Ellen to save yourself",
+  "flag_impact": [{"flag_name": "betrayed_Ellen", "value": true}],
+  "skill_impact": [{"skill_name": "Survival", "change": 15}],
+  "affection_impact": [{"character_name": "Ellen", "change": -30}]
+}
+
+**Example - Normal Choice** (no flag):
+{
+  "text": "Help Ellen with her task",
+  "skill_impact": [{"skill_name": "Empathy", "change": 12}],
+  "affection_impact": [{"character_name": "Ellen", "change": 10}]
 }
 ```
 
-#### 출력 (LLM → System)
+### 데이터 구조
 
-```json
+```csharp
+// AIDataConverter.cs
+[System.Serializable]
+public class ChoiceData
 {
-  "chapter_script": "3장은 주인공과 X가 공연 리허설에서...",
-  "choices": [
+    public string text;
+    public int next_id;
+    public SkillImpact[] skill_impact;
+    public AffectionImpact[] affection_impact;
+    public FlagImpact[] flag_impact;  // ← 새로 추가
+}
+
+[System.Serializable]
+public class FlagImpact
+{
+    public string flag_name;  // 예: "betrayed_Ellen"
+    public bool value;        // true = 설정, false = 제거
+}
+```
+
+```csharp
+// GameController.cs - 플래그 처리
+foreach (var key in allKeys)
+{
+    if (key.StartsWith($"Choice{choiceIndex + 1}_FlagImpact_"))
     {
-      "id": "CHOICE_1",
-      "text": "X에게 진심으로 사과한다",
-      "effect": {
-        "core_delta": -2,
-        "affinity_x_delta": +3,
-        "affinity_y_delta": 0,
-        "flags_add": ["apologized_X"],
-        "flags_remove": []
-      }
-    },
-    {
-      "id": "CHOICE_2",
-      "text": "프로답게 문제를 논리적으로 지적한다",
-      "effect": {
-        "core_delta": +4,
-        "affinity_x_delta": -1,
-        "affinity_y_delta": 0,
-        "flags_add": ["asserted_logic"],
-        "flags_remove": []
-      }
+        string flagName = key.Substring($"Choice{choiceIndex + 1}_FlagImpact_".Length);
+        bool flagValue = bool.Parse(currentLine.GetString(key));
+        currentState.flags[flagName] = flagValue;
     }
-  ]
 }
 ```
 
 ### 장점
 
-1. **분기 복잡도 97% 감소**: 1,024개 → 32개 (6챕터 기준)
-2. **API 비용 절감**: 캐시 재사용으로 동일 경로 재플레이 시 무료
-3. **Deterministic 출력**: 같은 state_key → 같은 챕터 보장
-4. **명확한 챕터 테마**:
-   - 짝수 챕터: "당신의 가치관은?" (Core Value 집중)
-   - 홀수 챕터: "누구를 신뢰할 것인가?" (NPC 관계 집중)
-5. **확장 가능**: Core Value 3개, NPC 3명으로 확장해도 선형 증가
+1. **몰입감 유지**: 주요 선택의 결과가 다음 챕터에 실제로 반영됨
+2. **실용적 분기 수**: 10-20개 (6챕터 × 0-1 주요 선택)
+3. **이벤트 기반**: 의미있는 선택만 분기 ("배신했다/안 했다")
+4. **캐시 효율**: 같은 플래그 조합이면 재사용
+5. **확장 용이**: 새로운 주요 선택 추가 시 선형 증가
 
-### 제약사항
+### 비교표
 
-- **Bucket 양자화**: 점수를 LOW/MID/HIGH로 뭉개므로 세밀한 분기 불가
-- **Major Flags만 반영**: 모든 플래그를 반영하면 상태 폭발 → 중요한 것만 선별
-- **Convergence 구조**: 최종 4개 엔딩 (AX, AY, BX, BY)으로 수렴
+| 접근법 | 분기 수 | 몰입감 | 선택 무게 | API 비용 | 구현 복잡도 |
+|--------|---------|--------|----------|----------|------------|
+| 완전 수렴 | 1/챕터 | ❌ 파괴 | ❌ 없음 | 최소 | 낮음 |
+| 교차 분기 | 32개 | ⚠️ 보통 | ⚠️ 점수 | 중간 | 높음 |
+| **주요 선택** | **10-20개** | **✅ 유지** | **✅ 이벤트** | **중간** | **중간** |
 
 ### 관련 파일
 
-- [Assets/Script/Runtime/ChapterGenerationManager.cs](Assets/Script/Runtime/ChapterGenerationManager.cs) - 캐시 키 생성 및 챕터 로드
-- [Assets/Script/Runtime/GameStateSnapshot.cs](Assets/Script/Runtime/GameStateSnapshot.cs) - 상태 스냅샷 구조
-- [systemdocs/chapter-generation.md](systemdocs/chapter-generation.md) - 상세 알고리즘
+- [Assets/Script/Runtime/ChapterGenerationManager.cs](Assets/Script/Runtime/ChapterGenerationManager.cs#L780-L876) - 캐시 키 생성
+- [Assets/Script/Runtime/GameController.cs](Assets/Script/Runtime/GameController.cs#L466-L491) - 플래그 처리
+- [Assets/Script/AISystem/AIDataConverter.cs](Assets/Script/AISystem/AIDataConverter.cs#L303-L340) - FlagImpact 데이터 구조
+- [BRANCHING_SOLUTION.md](BRANCHING_SOLUTION.md) - 3가지 접근법 상세 비교
 
 ---
 
