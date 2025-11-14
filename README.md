@@ -4,6 +4,8 @@
 
 AI가 시나리오, 캐릭터, 이미지, 사운드를 모두 생성하여 즉시 플레이 가능한 비주얼노벨을 만듭니다.
 
+**🎥 [데모 영상 보기](https://youtu.be/XJAiy67y_GI)**
+
 [![Unity](https://img.shields.io/badge/Unity-2022.3.4f1-black.svg?style=flat&logo=unity)](https://unity.com/)
 [![C#](https://img.shields.io/badge/C%23-239120?style=flat&logo=csharp&logoColor=white)](https://docs.microsoft.com/en-us/dotnet/csharp/)
 [![Gemini API](https://img.shields.io/badge/Gemini_API-1.5_Flash-blue.svg)](https://ai.google.dev/)
